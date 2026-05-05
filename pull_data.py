@@ -22,20 +22,39 @@ def authenticate():
     return token
 
 
-def pull_query(token, query_config):
-    qid = query_config["id"]
+def pull_native_query(token, query_config):
+    sql_file = query_config["sql_file"]
     outfile = query_config["file"]
-    url = f"{config.METABASE_HOST}/api/card/{qid}/query/csv"
-    headers = {"X-Metabase-Session": token}
-    print(f"[pull_data] Pulling Q{qid} → {os.path.basename(outfile)} …")
-    resp = requests.post(url, headers=headers, timeout=120)
+    with open(sql_file) as f:
+        sql = f.read()
+
+    url = f"{config.METABASE_HOST}/api/dataset"
+    headers = {"X-Metabase-Session": token, "Content-Type": "application/json"}
+    payload = {
+        "database": config.METABASE_DATABASE_ID,
+        "type": "native",
+        "native": {"query": sql},
+    }
+    print(f"[pull_data] Running {os.path.basename(sql_file)} → {os.path.basename(outfile)} …")
+    resp = requests.post(url, headers=headers, json=payload, timeout=300)
     resp.raise_for_status()
+
+    result = resp.json()
+    if result.get("error"):
+        raise RuntimeError(f"Metabase query error: {result['error']}")
+
+    data = result.get("data", {})
+    cols = [c["name"] for c in data.get("cols", [])]
+    rows = data.get("rows", [])
+
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
     with open(outfile, "w", newline="") as f:
-        f.write(resp.text)
-    row_count = resp.text.count("\n") - 1
-    print(f"[pull_data]   ✓ {row_count} rows written")
-    return row_count
+        writer = csv.writer(f)
+        writer.writerow(cols)
+        writer.writerows(rows)
+
+    print(f"[pull_data]   ✓ {len(rows)} rows written")
+    return len(rows)
 
 
 def validate_file(filepath, expected_cols):
@@ -75,7 +94,7 @@ def main(skip_pull=False):
         token = authenticate()
         for name, qcfg in config.QUERIES.items():
             try:
-                rc = pull_query(token, qcfg)
+                rc = pull_native_query(token, qcfg)
                 pull_log["files"][name] = {"status": "pulled", "rows": rc}
             except Exception as e:
                 print(f"[pull_data] ERROR pulling {name}: {e}")

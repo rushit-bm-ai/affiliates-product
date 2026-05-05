@@ -10,16 +10,18 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_DIR = os.path.join(BASE_DIR, "input_data")
 COMPUTED_DIR = os.path.join(BASE_DIR, "computed")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
+QUERIES_DIR = os.path.join(BASE_DIR, "queries")
 OUTPUT_HTML = os.path.join(BASE_DIR, "index.html")
 
 # ── Metabase ──────────────────────────────────────────────────────────────────
 METABASE_HOST = "https://cosmos-metabase.brightmoney.co"
 METABASE_USERNAME = "n8n-bot@brightmoney.co"
 METABASE_PASSWORD = os.getenv("METABASE_PASSWORD")
+METABASE_DATABASE_ID = 2  # dataplatform (Athena)
 
 QUERIES = {
     "reports_by_payout_cycle": {
-        "id": 4122,
+        "sql_file": os.path.join(QUERIES_DIR, "reports_by_payout_cycle.sql"),
         "file": os.path.join(INPUT_DIR, "reports_by_payout_cycle.csv"),
         "expected_columns": [
             "invoice_month", "partner", "cycle", "reports_revenue",
