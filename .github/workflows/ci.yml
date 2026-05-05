@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: "3.12"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -27,7 +27,7 @@ jobs:
 
       - name: No hardcoded secrets check
         run: |
-          if grep -Prn "(METABASE_PASSWORD|SMTP_PASSWORD)\s*=\s*['"][^os]" --include="*.py" .; then
+          if grep -Prn "(METABASE_PASSWORD|SMTP_PASSWORD)\s*=\s*[^o]" --include="*.py" .; then
             echo "ERROR: hardcoded secret detected"
             exit 1
           fi
@@ -36,9 +36,17 @@ jobs:
   deploy:
     needs: lint
     runs-on: ubuntu-latest
-    if: github.ref == "refs/heads/main" && github.event_name == "push"
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
       - name: Deploy to server
         run: |
-          echo "Deploy step is pending Step 4 (SSH deploy key setup)."
-          echo "Until then, SSH into server and run: git pull"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "cd ~/recon-dashboard && git pull && echo Deploy complete at $(date)"
