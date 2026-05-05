@@ -1,0 +1,6 @@
+requests
+pandas>=2.0
+gspread
+google-auth
+google-auth-oauthlib
+python-dotenv
