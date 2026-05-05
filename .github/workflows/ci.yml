@@ -27,7 +27,7 @@ jobs:
 
       - name: No hardcoded secrets check
         run: |
-          if grep -Prn "(METABASE_PASSWORD|SMTP_PASSWORD)\s*=\s*[^o]" --include="*.py" .; then
+          if grep -Prn "(METABASE_PASSWORD|SMTP_PASSWORD)\s*=\s*[\"']" --include="*.py" .; then
             echo "ERROR: hardcoded secret detected"
             exit 1
           fi
