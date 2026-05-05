@@ -1,0 +1,20 @@
+# Secrets
+.env
+google_sa_key.json
+
+# Generated output
+index.html
+computed/
+logs/
+input_data/
+screenshots/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# macOS
+.DS_Store

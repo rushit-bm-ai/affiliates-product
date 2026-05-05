@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax check
+        run: |
+          python3 -m py_compile config.py compute.py generate_dashboard.py
+          python3 -m py_compile pull_data.py run_recon.py run_email_report.py
+          python3 -m py_compile send_email.py fetch_amone_invoice.py
+
+      - name: No hardcoded secrets check
+        run: |
+          if grep -Prn "(METABASE_PASSWORD|SMTP_PASSWORD)\s*=\s*['"][^os]" --include="*.py" .; then
+            echo "ERROR: hardcoded secret detected"
+            exit 1
+          fi
+          echo "OK: no hardcoded secrets"
+
+  deploy:
+    needs: lint
+    runs-on: ubuntu-latest
+    if: github.ref == "refs/heads/main" && github.event_name == "push"
+    steps:
+      - name: Deploy to server
+        run: |
+          echo "Deploy step is pending Step 4 (SSH deploy key setup)."
+          echo "Until then, SSH into server and run: git pull"
