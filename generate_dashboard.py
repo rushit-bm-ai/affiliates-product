@@ -78,6 +78,14 @@ body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--
 .header-actions { display:flex; gap:8px; align-items:center; }
 .dark-toggle { cursor:pointer; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:#94a3b8; border-radius:8px; padding:6px 14px; font-size:11px; font-weight:600; transition:.2s; font-family:inherit; }
 .dark-toggle:hover { background:rgba(255,255,255,.15); color:#e2e8f0; }
+.refresh-btn { cursor:pointer; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:#94a3b8; border-radius:8px; padding:6px 14px; font-size:11px; font-weight:600; transition:.2s; font-family:inherit; display:inline-flex; align-items:center; gap:6px; }
+.refresh-btn:hover:not(:disabled) { background:rgba(255,255,255,.15); color:#e2e8f0; }
+.refresh-btn:disabled { opacity:.55; cursor:default; }
+.refresh-btn.running { color:#38bdf8; border-color:rgba(56,189,248,.35); }
+.refresh-btn.success { color:#4ade80; border-color:rgba(74,222,128,.35); }
+.refresh-btn.error   { color:#f87171; border-color:rgba(248,113,113,.35); }
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin { display:inline-block; animation:spin .8s linear infinite; }
 .header-meta { display:flex; gap:24px; margin-top:20px; flex-wrap:wrap; align-items:flex-start; }
 .header-meta .item { }
 .header-meta .label { font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:#475569; font-weight:600; }
@@ -291,6 +299,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <h1>Affiliates Analytics</h1>
     </div>
     <div class="header-actions">
+      <button class="refresh-btn" id="refreshBtn" onclick="triggerRefresh()">&#x21bb; Refresh</button>
       <button class="dark-toggle" onclick="toggleDark()">Dark Mode</button>
     </div>
   </div>
@@ -1203,6 +1212,67 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+// ── Refresh button ────────────────────────────────────────────────────────────
+(function() {
+  var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+  var pollTimer = null;
+
+  function btn() { return document.getElementById('refreshBtn'); }
+
+  function setState(state, label) {
+    var b = btn();
+    b.className = 'refresh-btn' + (state ? ' ' + state : '');
+    b.disabled = (state === 'running');
+    b.innerHTML = label;
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(poll, 4000);
+  }
+
+  function poll() {
+    fetch(API + '/api/refresh-status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'running') return;
+        clearInterval(pollTimer);
+        if (d.status === 'success') {
+          setState('success', '&#x2713; Done — reloading');
+          setTimeout(function() { window.location.reload(); }, 1200);
+        } else {
+          setState('error', '&#x2715; Failed');
+        }
+      })
+      .catch(function() { /* keep polling */ });
+  }
+
+  window.triggerRefresh = function() {
+    setState('running', '<span class="spin">&#x21bb;</span> Refreshing…');
+    fetch(API + '/api/refresh', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'started' || d.status === 'already_running') startPolling();
+      })
+      .catch(function() {
+        setState('error', '&#x2715; Server unreachable');
+      });
+  };
+
+  // On load: resume spinner if a refresh is already in progress
+  window.addEventListener('load', function() {
+    fetch(API + '/api/refresh-status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'running') {
+          setState('running', '<span class="spin">&#x21bb;</span> Refreshing…');
+          startPolling();
+        }
+      })
+      .catch(function() {}); // refresh_server not running — button stays idle
+  });
+})();
 </script>
 </body></html>"""
 

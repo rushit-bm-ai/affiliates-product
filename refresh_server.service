@@ -1,0 +1,16 @@
+[Unit]
+Description=Affiliates Dashboard Refresh API
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/recon-dashboard
+ExecStart=/usr/bin/python3 /home/ubuntu/recon-dashboard/refresh_server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
