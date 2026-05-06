@@ -365,7 +365,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <div class="tbl-wrap"><table>
         <thead><tr><th>Tab</th><th>Sub-tab</th><th>What it shows</th><th>Primary source</th><th>Refresh</th></tr></thead>
         <tbody>
-          <tr><td><strong>Recon</strong></td><td>Payout vs Invoice</td><td>Monthly partner payout amounts vs invoice amounts, delta $ and %, variance status and trend charts</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">reports_by_payout_cycle.sql</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Recon</strong></td><td>Reports vs Invoice</td><td>Monthly partner payout amounts vs invoice amounts, delta $ and %, variance status and trend charts</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">reports_by_payout_cycle.sql</code></td><td>Daily 9 AM IST</td></tr>
           <tr><td><strong>Recon</strong></td><td>Cash Collections</td><td>Invoice amounts vs actual cash received from partners, yet-to-receive tracking, collection timeline</td><td><span class="tag tag-green">Google Sheet</span> <code style="font-size:10px">New R : finance</code></td><td>Daily 9 AM IST</td></tr>
           <tr><td><strong>Monitor</strong></td><td>—</td><td>Day-on-Day and Week-on-Week payout trends by sub-partner, heatmap, Month-on-Month bar chart and breakdown table</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">daily / weekly / monthly_by_partner.sql</code></td><td>Daily 9 AM IST</td></tr>
           <tr><td><strong>Health</strong></td><td>—</td><td>Pipeline run history, step-level status, email log, cron schedule</td><td><span class="tag tag-teal">Local logs</span> <code style="font-size:10px">logs/health_log.json</code></td><td>Written each run</td></tr>
@@ -410,7 +410,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
     <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">3</span> SQL Queries</h2>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px">All queries run via Metabase <code>/api/dataset</code> endpoint against Athena (database_id=2). SQL files live in <code>queries/</code> — edit there to change what's pulled.</p>
 
-      <details open><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">reports_by_payout_cycle.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Recon &gt; Payout vs Invoice &nbsp;|&nbsp; all history</span></summary>
+      <details open><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">reports_by_payout_cycle.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Recon &gt; Reports vs Invoice &nbsp;|&nbsp; all history</span></summary>
         <pre class="sql-block">{{ sql_reports | e }}</pre>
       </details>
 
@@ -461,22 +461,26 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
     <!-- 6: Status Logic & Variance Thresholds -->
     <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">6</span> Status Logic &amp; Variance Thresholds</h2>
 
-      <h3 style="margin-bottom:10px">Payout vs Invoice — Monthly Reconciliation</h3>
+      <h3 style="margin-bottom:10px">Reports vs Invoice — Monthly Reconciliation</h3>
       <div class="about-grid" style="margin-bottom:16px">
         <div>
-          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Color (GREEN / RED)</p>
-          <div class="rule-row"><span class="rule-condition">Reports $ &ge; Invoice $</span><span class="rule-result" style="color:var(--green-text)">GREEN</span></div>
-          <div class="rule-row"><span class="rule-condition">Reports $ &lt; Invoice $</span><span class="rule-result" style="color:var(--red-text)">RED</span></div>
-          <div class="rule-row"><span class="rule-condition">payout_month &ge; current_month</span><span class="rule-result" style="color:var(--grey-text)">PENDING</span></div>
+          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Status Badge — Label (Variance Status)</p>
+          <div class="rule-row"><span class="rule-condition">|delta%| within GREEN threshold</span><span class="rule-result"><span class="badge GREEN">Low</span></span></div>
+          <div class="rule-row"><span class="rule-condition">|delta%| within AMBER threshold</span><span class="rule-result"><span class="badge AMBER">Medium</span></span></div>
+          <div class="rule-row"><span class="rule-condition">|delta%| exceeds AMBER threshold</span><span class="rule-result"><span class="badge RED">High</span></span></div>
+          <div class="rule-row"><span class="rule-condition">No invoice or future month</span><span class="rule-result"><span class="badge PENDING">Pending</span></span></div>
         </div>
         <div>
-          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Variance Status (Low / Medium / High)</p>
-          <div class="rule-row"><span class="rule-condition">|delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">Low</span></div>
-          <div class="rule-row"><span class="rule-condition">2% &le; |delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">Medium</span></div>
-          <div class="rule-row"><span class="rule-condition">|delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">High</span></div>
+          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Status Badge — Color (Variance Thresholds)</p>
+          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;|delta%| &lt; 5%</span><span class="rule-result" style="color:var(--green-text)">GREEN (Low)</span></div>
+          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;5% &le; |delta%| &lt; 10%</span><span class="rule-result" style="color:var(--amber-text)">AMBER (Medium)</span></div>
+          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;|delta%| &ge; 10%</span><span class="rule-result" style="color:var(--red-text)">RED (High)</span></div>
+          <div class="rule-row"><span class="rule-condition">All others &nbsp;|delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">GREEN (Low)</span></div>
+          <div class="rule-row"><span class="rule-condition">All others &nbsp;2% &le; |delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">AMBER (Medium)</span></div>
+          <div class="rule-row"><span class="rule-condition">All others &nbsp;|delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">RED (High)</span></div>
         </div>
       </div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:16px"><strong>Note:</strong> MoneyLion &amp; AmONE use wider thresholds for the Cumulative status badge: Green &lt;5%, Amber 5–10%, Red &gt;10%. Other partners: Green &lt;2%, Amber 2–5%, Red &ge;5%.</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:16px">The badge label shows Variance Status (Low / Medium / High / Pending) and the badge color reflects GREEN / AMBER / RED based on the thresholds above.</p>
 
       <h3 style="margin-bottom:10px">Cash Collections (Invoice vs Cash Received)</h3>
       <div class="rule-row"><span class="rule-condition">Received $ &ge; Invoiced $</span><span class="rule-result" style="color:var(--green-text)">GREEN &nbsp;(positive delta)</span></div>
@@ -492,7 +496,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <div class="tbl-wrap"><table class="cfg-tbl">
         <thead><tr><th>Setting</th><th>Value</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td>Close month</td><td><code>current_month − 1</code> (dynamic)</td><td>Auto-derived each run; can be overridden in <code>manual_inputs.yaml</code></td></tr>
+          <tr><td>Close month</td><td><code>current_month − 1</code> (dynamic)</td><td>Auto-derived each run; override via <code>--month YYYY-MM</code> flag on run_recon.py for backfills</td></tr>
           <tr><td>Daily data window</td><td>Last 60 days</td><td>daily_by_partner.sql — used for day-on-day chart &amp; heatmap</td></tr>
           <tr><td>Weekly data window</td><td>Last 16 weeks</td><td>weekly_by_partner.sql — WoW chart</td></tr>
           <tr><td>Monthly data window</td><td>Last 13 months</td><td>monthly_by_partner.sql — MoM chart</td></tr>
@@ -514,7 +518,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   <input type="radio" id="recon-tab1" name="recon-tabs" checked>
   <input type="radio" id="recon-tab2" name="recon-tabs">
   <div class="sub-nav-bar">
-    <label for="recon-tab1"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Payout vs Invoice</label>
+    <label for="recon-tab1"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Reports vs Invoice</label>
     <label for="recon-tab2"><span class="tab-dot {% if l3 %}{% if l3.overall_status == 'GREEN' %}dot-green{% elif l3.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Cash Collections</label>
   </div>
   <div class="sub-panel rp1">
@@ -533,7 +537,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
         </div><button onclick="resetFilter('t1m')">Reset</button></div>
       <div class="tbl-wrap"><table id="t1m">
         <thead><tr><th onclick="sortTable('t1m',0)">Month <span class="sort-ind"></span></th><th onclick="sortTable('t1m',1)">Partner</th><th onclick="sortTable('t1m',2)">Cycle</th><th class="num" onclick="sortTable('t1m',3)">Invoice $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',4)">Reports $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',5)">Delta $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',6)">Delta % <span class="sort-ind"></span></th><th onclick="sortTable('t1m',7)">Status</th><th>Comments</th></tr></thead>
-        <tbody>{% for r in l1.monthly_detail %}<tr data-partner="{{ r.partner }}" data-month="{{ r.payout_month }}" data-status="{{ r.monthly_status }}"><td>{{ r.payout_month }}</td><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td>{{ r.cycle }}</td><td class="num">${{ "{:,.2f}".format(r.invoice_amount if r.invoice_amount is defined else r.reports_amount) }}</td><td class="num">${{ "{:,.2f}".format(r.reports_amount) }}</td><td class="num {{ 'var-pos' if r.delta >= 0 else 'var-neg' }}">${{ "{:,.2f}".format(r.delta) }}</td><td class="num {{ 'var-pos' if r.delta_pct is not none and r.delta_pct >= 0 else 'var-neg' }}">{{ "{:.2f}%".format(r.delta_pct) if r.delta_pct is not none else '—' }}</td><td><span style="color:var(--{{ r.monthly_color }}-text);font-weight:700">{{ r.monthly_status }}</span></td><td><input class="comment-input" type="text" placeholder="Add note..."></td></tr>{% endfor %}</tbody>
+        <tbody>{% for r in l1.monthly_detail %}<tr data-partner="{{ r.partner }}" data-month="{{ r.payout_month }}" data-status="{{ r.monthly_status }}"><td>{{ r.payout_month }}</td><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td>{{ r.cycle }}</td><td class="num">${{ "{:,.2f}".format(r.invoice_amount if r.invoice_amount is defined else r.reports_amount) }}</td><td class="num">${{ "{:,.2f}".format(r.reports_amount) }}</td><td class="num {{ 'var-pos' if r.delta >= 0 else 'var-neg' }}">${{ "{:,.2f}".format(r.delta) }}</td><td class="num {{ 'var-pos' if r.delta_pct is not none and r.delta_pct >= 0 else 'var-neg' }}">{{ "{:.2f}%".format(r.delta_pct) if r.delta_pct is not none else '—' }}</td><td><span class="badge {{ r.status }}">{{ r.monthly_status }}</span></td><td><input class="comment-input" type="text" placeholder="Add note..."></td></tr>{% endfor %}</tbody>
       </table></div></div>
     <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Cumulative To-Date</h2>
       <div class="tbl-wrap"><table id="t1c">
@@ -545,7 +549,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <p style="font-size:12px;color:var(--muted);margin-bottom:16px">One chart per partner &times; cycle &mdash; Invoice $, Reports $, and Delta $ over time. Hover to inspect, drag to pan, scroll to zoom.</p>
       <div class="chart-grid" id="trend-chart-grid"></div>
     </div>
-  {% else %}<div class="section"><p style="color:var(--muted)">Payout vs Invoice data not available.</p></div>{% endif %}
+  {% else %}<div class="section"><p style="color:var(--muted)">Reports vs Invoice data not available.</p></div>{% endif %}
   </div><!-- /rp1 -->
 
   <!-- Invoice vs Cash sub-tab -->
@@ -650,14 +654,14 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
     {% if health_log %}
     <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Run History (last {{ health_log|length }} runs)</h2>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Timestamp (IST)</th><th>Close Month</th><th>Status</th><th>Data Pull</th><th>Validation</th><th>Payout vs Invoice</th><th>Invoice vs Cash</th><th>Dashboard</th><th class="num">Duration</th><th>Errors</th></tr></thead>
+        <thead><tr><th>Timestamp (IST)</th><th>Close Month</th><th>Status</th><th>Data Pull</th><th>Validation</th><th>Reports vs Invoice</th><th>Invoice vs Cash</th><th>Dashboard</th><th class="num">Duration</th><th>Errors</th></tr></thead>
         <tbody>{% for h in health_log|reverse %}<tr{% if h.status == 'FAILED' %} style="background:var(--red-bg)"{% endif %}>
           <td>{{ h.timestamp_ist }} IST</td>
           <td>{{ h.close_month }}</td>
           <td><span class="badge {{ h.status }}">{{ h.status }}</span></td>
           <td>{{ h.steps.data_pull if h.steps.data_pull is defined else '—' }}</td>
           <td>{{ h.steps.validation if h.steps.validation is defined else '—' }}</td>
-          <td>{{ h.steps.payout_vs_invoice if h.steps.payout_vs_invoice is defined else '—' }}</td>
+          <td>{{ h.steps.reports_vs_invoice if h.steps.reports_vs_invoice is defined else '—' }}</td>
           <td>{{ h.steps.invoice_vs_cash_live if h.steps.invoice_vs_cash_live is defined else '—' }}</td>
           <td>{{ h.steps.dashboard_render if h.steps.dashboard_render is defined else '—' }}</td>
           <td class="num">{{ h.duration_seconds }}s</td>

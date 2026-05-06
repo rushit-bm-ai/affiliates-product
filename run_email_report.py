@@ -1,30 +1,32 @@
-"""Entry point for the daily Invoice vs Cash email report."""
+"""Entry point for the daily affiliates recon email report."""
 
+import argparse
 import json
 import os
 import traceback
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 import requests
 
 import config
-from send_email import generate_email_html, send_email, append_email_log, compute_changes
+from send_email import (generate_email_html, send_email, append_email_log,
+                        compute_changes, compute_l1_changes)
 
-SNAPSHOT_FILE  = os.path.join(config.COMPUTED_DIR, "l3_prev_snapshot.json")
-L3_FILE        = os.path.join(config.COMPUTED_DIR, "l3_live_results.json")
-STALE_HOURS    = 26   # flag as stale if data is older than this
+L3_FILE           = os.path.join(config.COMPUTED_DIR, "l3_live_results.json")
+L3_SNAPSHOT_FILE  = os.path.join(config.COMPUTED_DIR, "l3_prev_snapshot.json")
+L1_FILE           = os.path.join(config.COMPUTED_DIR, "l1_results.json")
+L1_SNAPSHOT_FILE  = os.path.join(config.COMPUTED_DIR, "l1_prev_snapshot.json")
+STALE_HOURS       = 26
 
 
-def load_json(name):
-    p = os.path.join(config.COMPUTED_DIR, name)
-    if os.path.exists(p):
-        with open(p) as f:
+def load_json(path):
+    if os.path.exists(path):
+        with open(path) as f:
             return json.load(f)
     return None
 
 
 def is_stale(l3):
-    """Return (is_stale, age_str) — stale if generated_at is older than STALE_HOURS."""
     generated_at = l3.get("generated_at")
     if not generated_at:
         return True, "unknown age"
@@ -41,42 +43,56 @@ def is_stale(l3):
 
 
 def main():
-    print(f"═══ Daily Data Refresh — Email Report ═══")
+    parser = argparse.ArgumentParser(description="Send daily affiliates recon email")
+    parser.add_argument("--to", nargs="+", help="Override recipient(s) for test sends")
+    args = parser.parse_args()
+
+    print("═══ Daily Affiliates Recon — Email Report ═══")
     start = datetime.now()
 
     log_entry = {
         "timestamp": config.now_ist().isoformat(),
         "status": "SUCCESS",
-        "recipients": config.EMAIL_TO,
+        "recipients": args.to or config.EMAIL_TO,
         "error": None,
         "data_stale": False,
     }
 
     try:
-        l3 = load_json("l3_live_results.json")
+        l3 = load_json(L3_FILE)
         if not l3:
-            raise RuntimeError("No computed data found — run run_recon.py first.")
+            raise RuntimeError("No l3 data found — run run_recon.py first.")
 
-        # Stale data detection
         stale, age_str = is_stale(l3)
         log_entry["data_stale"] = stale
         if stale:
-            print(f"[email] WARNING: data is stale ({age_str}) — sending on existing data")
+            print(f"[email] WARNING: data is stale ({age_str})")
         else:
             print(f"[email] Data freshness OK ({age_str})")
 
-        # Load previous snapshot for change detection
-        prev_l3 = load_json("l3_prev_snapshot.json") if os.path.exists(SNAPSHOT_FILE) else None
+        # Load l3 change data
+        prev_l3 = load_json(L3_SNAPSHOT_FILE)
         changes = compute_changes(prev_l3, l3)
+        print(f"[email] l3 changes — new_cash: {len(changes['new_cash'])}")
 
-        new_inv  = len(changes.get("new_invoices", []))
-        new_cash = len(changes.get("new_cash", []))
-        print(f"[email] Changes — new invoices: {new_inv}, new cash: {new_cash}")
+        # Load l1 data and invoice changes
+        l1      = load_json(L1_FILE)
+        prev_l1 = load_json(L1_SNAPSHOT_FILE)
+        l1_changes = compute_l1_changes(prev_l1, l1)
+        print(f"[email] l1 changes — new invoices: {len(l1_changes['new_invoices'])}, "
+              f"updated: {len(l1_changes['updated_invoices'])}")
 
-        # Generate and send — pass stale flag so template can surface it
-        html = generate_email_html(l3, changes, stale=stale, data_age=age_str)
+        html = generate_email_html(l3, l1=l1, changes=changes, l1_changes=l1_changes,
+                                   stale=stale, data_age=age_str)
         print(f"[email] HTML generated ({len(html):,} bytes)")
-        send_email(html)
+
+        # Save preview locally for inspection
+        preview_path = os.path.join(config.BASE_DIR, "email_preview.html")
+        with open(preview_path, "w") as f:
+            f.write(html)
+        print(f"[email] Preview saved → email_preview.html")
+
+        send_email(html, to=args.to if args.to else None)
         log_entry["status"] = "SUCCESS"
 
     except Exception as e:
@@ -85,7 +101,7 @@ def main():
         print(f"[email] FAILED: {e}")
         try:
             requests.post(config.SLACK_WEBHOOK_URL, json={
-                "text": (f":red_circle: *Daily Data Refresh — Email Failed*\n"
+                "text": (f":red_circle: *Affiliates Recon Email Failed*\n"
                          f"*Error:* `{e}`\n"
                          f"*Time:* {config.now_ist().strftime('%Y-%m-%d %H:%M IST')}"),
             }, timeout=10)

@@ -13,17 +13,23 @@ import requests
 
 import config
 
-SNAPSHOT_FILE = os.path.join(config.COMPUTED_DIR, "l3_prev_snapshot.json")
-L3_FILE       = os.path.join(config.COMPUTED_DIR, "l3_live_results.json")
+L3_FILE           = os.path.join(config.COMPUTED_DIR, "l3_live_results.json")
+L3_SNAPSHOT_FILE  = os.path.join(config.COMPUTED_DIR, "l3_prev_snapshot.json")
+L1_FILE           = os.path.join(config.COMPUTED_DIR, "l1_results.json")
+L1_SNAPSHOT_FILE  = os.path.join(config.COMPUTED_DIR, "l1_prev_snapshot.json")
 
 
 def save_snapshot():
-    """Copy current l3_live_results.json → l3_prev_snapshot.json before new data overwrites it."""
-    if os.path.exists(L3_FILE):
-        shutil.copy(L3_FILE, SNAPSHOT_FILE)
-        print(f"[recon] Snapshot saved → l3_prev_snapshot.json")
-    else:
-        print(f"[recon] No existing l3 file to snapshot — skipping")
+    """Copy current l3/l1 results → prev snapshots before new data overwrites them."""
+    for src, dst, label in [
+        (L3_FILE, L3_SNAPSHOT_FILE, "l3_prev_snapshot.json"),
+        (L1_FILE, L1_SNAPSHOT_FILE, "l1_prev_snapshot.json"),
+    ]:
+        if os.path.exists(src):
+            shutil.copy(src, dst)
+            print(f"[recon] Snapshot saved → {label}")
+        else:
+            print(f"[recon] No existing {os.path.basename(src)} to snapshot — skipping")
 
 
 def send_slack_alert(message):
@@ -107,7 +113,7 @@ def main():
         health["steps"]["validation"] = vr.get("overall_status", "UNKNOWN")
 
         l1 = compute.compute_reports_vs_invoice(close_month)
-        health["steps"]["payout_vs_invoice"] = f"{len(l1['monthly_detail'])} rows, {l1['overall_status']}"
+        health["steps"]["reports_vs_invoice"] = f"{len(l1['monthly_detail'])} rows, {l1['overall_status']}"
 
         try:
             l3 = compute.compute_invoice_vs_cash_live(close_month)

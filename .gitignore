@@ -4,6 +4,7 @@ google_sa_key.json
 
 # Generated output
 index.html
+email_preview.html
 computed/
 logs/
 input_data/
