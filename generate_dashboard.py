@@ -33,7 +33,7 @@ TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Affiliates Reconciliation Dashboard — {{ close_month }}</title>
+<title>Affiliates Analytics — {{ close_month }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -82,17 +82,6 @@ body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--
 .header-meta .item { }
 .header-meta .label { font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:#475569; font-weight:600; }
 .header-meta .value { font-size:14px; font-weight:700; margin-top:1px; }
-.stats-bar { display:flex; gap:8px; margin-top:20px; flex-wrap:wrap; }
-.stat { padding:6px 16px; border-radius:8px; font-size:12px; font-weight:700; }
-.stat-total { background:rgba(255,255,255,.06); color:#94a3b8; }
-.stat-pass { background:rgba(72,187,120,.12); color:#86efac; }
-.stat-fail { background:rgba(245,101,101,.12); color:#fca5a5; }
-.stat-warn { background:rgba(251,191,36,.12); color:#fde68a; }
-.stat-pending { background:rgba(148,163,184,.12); color:#94a3b8; }
-.overall-badge { display:inline-block; padding:5px 18px; border-radius:20px; font-size:11px; font-weight:800; letter-spacing:.5px; margin-top:16px; }
-.overall-green { background:rgba(72,187,120,.15); color:#86efac; }
-.overall-red { background:rgba(245,101,101,.15); color:#fca5a5; }
-.overall-amber { background:rgba(251,191,36,.15); color:#fde68a; }
 
 /* ── Summary strip ── */
 .summary-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; padding:20px 36px; background:var(--card); border-bottom:1px solid var(--border); }
@@ -133,6 +122,12 @@ html.dark #tab3:checked ~ .nav-bar label[for="tab3"] {
 #tab1:checked ~ .tab-panel.p1,
 #tab2:checked ~ .tab-panel.p2,
 #tab3:checked ~ .tab-panel.p3 { display:block; }
+/* Monitor partner filter bar */
+#mon-filter-bar { margin-bottom:20px; }
+.mon-cb-wrap { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.mon-cb-label { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500; color:var(--text); padding:4px 10px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:var(--card); transition:.15s; }
+.mon-cb-label:hover { background:var(--bg); }
+.mon-cb-label input[type="checkbox"] { width:13px; height:13px; cursor:pointer; }
 
 /* ── Sections ── */
 .section { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px 28px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
@@ -241,6 +236,48 @@ html.dark .section { background:var(--card); border-color:var(--border); box-sha
 html.dark .sc { background:#0f172a; border-color:#334155; }
 html.dark .sc:hover { box-shadow:0 4px 12px rgba(0,0,0,.3); }
 html.dark .health-card { background:#0f172a; border-color:#334155; }
+.chart-grid { display:flex; flex-direction:column; gap:16px; }
+.chart-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; min-width:0; }
+html.dark .chart-card { background:var(--card); border-color:var(--border); }
+/* About tab */
+.sql-block { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px 18px; font-family:'SF Mono','Cascadia Code','Consolas',monospace; font-size:11.5px; white-space:pre; overflow-x:auto; color:var(--text); margin-top:10px; line-height:1.7; }
+html.dark .sql-block { background:#0a0f1e; }
+.about-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:8px; }
+@media (max-width:900px) { .about-grid { grid-template-columns:1fr; } }
+.about-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px; }
+.about-card .ac-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:8px; }
+.about-card .ac-val { font-size:13px; font-weight:600; color:var(--text); }
+.about-card .ac-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+.tag { display:inline-block; padding:2px 9px; border-radius:10px; font-size:10px; font-weight:700; margin:2px; }
+.tag-blue { background:var(--blue-bg); color:var(--blue-text); }
+.tag-green { background:var(--green-bg); color:var(--green-text); }
+.tag-purple { background:var(--purple-bg); color:var(--purple-text); }
+.tag-teal { background:var(--teal-bg); color:var(--teal-text); }
+.tag-amber { background:var(--amber-bg); color:var(--amber-text); }
+.rule-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.rule-row:last-child { border-bottom:none; }
+.rule-condition { flex:1; color:var(--muted); font-family:'SF Mono','Cascadia Code','Consolas',monospace; font-size:11px; }
+.rule-result { font-weight:700; min-width:80px; }
+/* Sub-tabs (Recon) */
+.sub-tab-wrapper input[type="radio"] { display:none; }
+.sub-panel { display:none; }
+#recon-tab1:checked ~ .sub-nav-bar label[for="recon-tab1"],
+#recon-tab2:checked ~ .sub-nav-bar label[for="recon-tab2"] { color:var(--blue); border-bottom-color:var(--blue); }
+#recon-tab1:checked ~ .sub-panel.rp1,
+#recon-tab2:checked ~ .sub-panel.rp2 { display:block; }
+.sub-nav-bar { display:flex; padding:0 36px; gap:0; background:var(--card); border-bottom:2px solid var(--border); }
+.sub-nav-bar label { cursor:pointer; padding:10px 22px; font-size:12px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:.15s; }
+.sub-nav-bar label:hover { color:var(--text); }
+html.dark .sub-nav-bar { background:var(--card); border-bottom-color:var(--border); }
+/* KPI cards */
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.kpi-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px 24px; }
+.kpi-card .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); }
+.kpi-card .kpi-value { font-size:26px; font-weight:800; margin:6px 0 4px; color:var(--text); }
+.kpi-card .kpi-sub { font-size:12px; font-weight:600; }
+.kpi-up { color:var(--green-text); } .kpi-down { color:var(--red-text); }
+html.dark .kpi-card { background:var(--card); border-color:var(--border); }
 </style>
 </head>
 <body>
@@ -251,8 +288,7 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
 <div class="header">
   <div class="header-top">
     <div>
-      <h1>Affiliates Reconciliation Dashboard</h1>
-      <div class="subtitle">Bright Money — Partner Payout & Invoice Reconciliation</div>
+      <h1>Affiliates Analytics</h1>
     </div>
     <div class="header-actions">
       <button class="dark-toggle" onclick="toggleDark()">Dark Mode</button>
@@ -261,27 +297,7 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
   <div class="header-meta">
     <div class="item"><div class="label">Close Month</div><div class="value">{{ close_month }}</div></div>
     <div class="item"><div class="label">Generated</div><div class="value">{{ generated_at }} IST</div></div>
-    <div class="item"><div class="label">Data Pulled</div><div class="value">{{ pull_timestamp_ist or '—' }} IST</div></div>
-    {% if l1 %}
-    <div class="item"><div class="label">Overall Status</div><div class="value">
-      {% set red_count = l1.monthly_detail|selectattr('status','equalto','RED')|list|length %}
-      {% set amber_count = l1.monthly_detail|selectattr('status','equalto','AMBER')|list|length %}
-      {% set green_count = l1.monthly_detail|selectattr('status','equalto','GREEN')|list|length %}
-      {% if red_count > 0 %}<span class="overall-badge overall-red">{{ red_count }} VARIANCE ISSUES</span>
-      {% elif amber_count > 0 %}<span class="overall-badge overall-amber">{{ amber_count }} WARNINGS</span>
-      {% else %}<span class="overall-badge overall-green">ALL RECONCILED</span>{% endif %}
-    </div></div>
-    {% endif %}
   </div>
-  {% if l1 %}
-  <div class="stats-bar">
-    <span class="stat stat-total">{{ l1.monthly_detail|length }} Total Rows</span>
-    <span class="stat stat-pass">{{ l1.monthly_detail|selectattr('status','equalto','GREEN')|list|length }} Green</span>
-    <span class="stat stat-warn">{{ l1.monthly_detail|selectattr('status','equalto','AMBER')|list|length }} Amber</span>
-    <span class="stat stat-fail">{{ l1.monthly_detail|selectattr('status','equalto','RED')|list|length }} Red</span>
-    <span class="stat stat-pending">{{ l1.monthly_detail|selectattr('status','equalto','GREY')|list|length }} Grey</span>
-  </div>
-  {% endif %}
 </div>
 
 <!-- ══ SUMMARY STRIP ══ -->
@@ -326,54 +342,173 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
   <input type="radio" id="tab2" name="tabs">
   <input type="radio" id="tab3" name="tabs">
   <div class="nav-bar">
-    <label for="tab0" class="nav-tab"><span class="tab-dot {% if validation and validation.overall_status == 'PASS' %}dot-green{% elif validation and validation.overall_status == 'WARN' %}dot-amber{% else %}dot-grey{% endif %}"></span>Inputs & Validation</label>
-    <label for="tab1" class="nav-tab"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Payout vs Invoice</label>
-    <label for="tab2" class="nav-tab"><span class="tab-dot {% if l3 %}{% if l3.overall_status == 'GREEN' %}dot-green{% elif l3.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Invoice vs Cash (Live)</label>
+    <label for="tab0" class="nav-tab"><span class="tab-dot dot-grey"></span>About</label>
+    <label for="tab1" class="nav-tab"><span class="tab-dot {% if l1 or l3 %}{% if (l1 and l1.overall_status == 'RED') or (l3 and l3.overall_status == 'RED') %}dot-red{% elif (l1 and l1.overall_status == 'AMBER') or (l3 and l3.overall_status == 'AMBER') %}dot-amber{% else %}dot-green{% endif %}{% else %}dot-grey{% endif %}"></span>Recon</label>
+    <label for="tab2" class="nav-tab"><span class="tab-dot dot-grey"></span>Monitor</label>
     <label for="tab3" class="nav-tab"><span class="tab-dot {% if health_log %}{% if health_log[-1].status == 'SUCCESS' %}dot-green{% elif health_log[-1].status == 'PARTIAL' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Health</label>
   </div>
 
-  <!-- ══ TAB 0 — Inputs & Validation ══ -->
+  <!-- ══ TAB 0 — About ══ -->
   <div class="tab-panel p0">
-    <div class="section"><h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Data Source Inventory</h2>
-      <div class="tbl-wrap"><table><thead><tr><th>Source</th><th>File</th><th>Pull Method</th><th class="num">Rows</th><th>Month Range</th><th>Status</th></tr></thead>
-        <tbody>{% for f in validation.files %}<tr><td>{{ f.label }}</td><td><code style="font-size:11px;color:var(--muted)">{{ f.file }}</code></td><td>{{ f.pull_method }}</td><td class="num">{{ f.row_count }}</td><td>{{ f.month_range.min }} &rarr; {{ f.month_range.max }}</td><td><span class="badge {{ f.status }}">{{ f.status }}</span></td></tr>{% endfor %}</tbody></table></div>
-    </div>
-    {% if validation.files[0].columns %}
-    <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Column-Level Validation</h2>
-      {% for f in validation.files %}{% if f.columns %}
-      <details><summary>{{ f.label }} — {{ f.file }} ({{ f.columns|length }} columns)</summary>
-        <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Column</th><th>Dtype</th><th class="num">Nulls</th><th class="num">Null %</th><th>Min</th><th>Max</th><th>Sample Values</th></tr></thead>
-          <tbody>{% for c in f.columns %}<tr><td><code style="font-size:11px">{{ c.name }}</code></td><td>{{ c.dtype }}</td><td class="num">{{ c.nulls }}</td><td class="num">{{ c.null_pct }}%</td><td>{{ c.min if c.min is not none else '—' }}</td><td>{{ c.max if c.max is not none else '—' }}</td><td style="color:var(--muted);font-size:11px">{{ c.sample_values|join(', ') }}</td></tr>{% endfor %}</tbody></table></div>
-      </details>{% endif %}{% endfor %}
-    </div>
-    {% endif %}
-    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">3</span> Partner Coverage</h2>
-      <div class="tbl-wrap"><table><thead><tr><th>Partner</th><th>In Q3870</th><th class="num">Q3870 Rows</th><th>Status</th></tr></thead>
-        <tbody>{% for p in validation.partner_coverage %}<tr><td><span class="partner-dot {{ p.partner }}"></span>{{ p.display_name }}</td><td style="font-size:15px">{{ '&#10003;' if p.in_q3870 else '&#10007;' }}</td><td class="num">{{ p.q3870_rows }}</td><td><span class="badge {{ p.status }}">{{ p.status }}</span></td></tr>{% endfor %}</tbody></table></div>
-    </div>
-    <div class="section"><h2><span class="section-icon" style="background:var(--amber-bg);color:var(--amber-text);">4</span> Partner Configuration</h2>
-      <table class="cfg-tbl"><thead><tr><th>Partner</th><th>Cycles</th><th>Payment Term</th><th>Accel. Charge</th><th>Q3870 Name</th><th>GSheet Name</th></tr></thead>
-        <tbody>{% for p, cfg in partner_config.items() %}<tr><td><span class="partner-dot {{ p }}"></span>{{ partner_display[p] }}</td><td>{{ cfg.cycles }}</td><td>{{ cfg.payment_term }} days</td><td>{{ cfg.accel_charge }}</td><td><code style="font-size:11px">{{ cfg.q3870_name }}</code></td><td><code style="font-size:11px">{{ cfg.gsheet_name }}</code></td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">5</span> Variance Thresholds</h2>
-      <h3>Payout vs Invoice</h3>
-      <table class="cfg-tbl"><thead><tr><th>Partners</th><th><span class="badge GREEN">GREEN</span></th><th><span class="badge AMBER">AMBER</span></th><th><span class="badge RED">RED</span></th></tr></thead>
-        <tbody><tr><td>MoneyLion &amp; AmONE</td><td>abs &lt; 5%</td><td>5–10%</td><td>&gt; 10%</td></tr>
-        <tr><td>Generic</td><td>abs &lt; 2%</td><td>2–5%</td><td>&ge; 5%</td></tr></tbody></table>
-      <h3>Invoice vs Cash (Live)</h3>
-      <table class="cfg-tbl"><thead><tr><th>Condition</th><th>Status</th></tr></thead>
-        <tbody><tr><td>abs(delta %) &lt; 2%</td><td style="color:var(--green-text);font-weight:700">Low</td></tr>
-        <tr><td>abs(delta %) 2–5%</td><td style="color:var(--amber-text);font-weight:700">Medium</td></tr>
-        <tr><td>abs(delta %) &ge; 5%</td><td style="color:var(--red-text);font-weight:700">High</td></tr></tbody></table>
-    </div>
-    <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">6</span> Cleaning Log</h2>
-      <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Action</th><th>Detail</th><th>Status</th></tr></thead>
-        <tbody>{% for e in validation.cleaning_log %}<tr><td>{{ loop.index }}</td><td><strong>{{ e.action }}</strong></td><td style="color:var(--muted)">{{ e.detail }}</td><td><span class="badge {{ e.status }}">{{ e.status }}</span></td></tr>{% endfor %}</tbody></table></div>
-    </div>
-  </div>
 
-  <!-- ══ TAB 1 — Payout vs Invoice ══ -->
+    <!-- 1: Tab Reference -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Tab Reference</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Tab</th><th>Sub-tab</th><th>What it shows</th><th>Primary source</th><th>Refresh</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Recon</strong></td><td>Payout vs Invoice</td><td>Monthly partner payout amounts vs invoice amounts, delta $ and %, variance status and trend charts</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">reports_by_payout_cycle.sql</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Recon</strong></td><td>Cash Collections</td><td>Invoice amounts vs actual cash received from partners, yet-to-receive tracking, collection timeline</td><td><span class="tag tag-green">Google Sheet</span> <code style="font-size:10px">New R : finance</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Monitor</strong></td><td>—</td><td>Day-on-Day and Week-on-Week payout trends by sub-partner, heatmap, Month-on-Month bar chart and breakdown table</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">daily / weekly / monthly_by_partner.sql</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Health</strong></td><td>—</td><td>Pipeline run history, step-level status, email log, cron schedule</td><td><span class="tag tag-teal">Local logs</span> <code style="font-size:10px">logs/health_log.json</code></td><td>Written each run</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- 2: Data Sources -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--green-bg);color:var(--green-text);">2</span> Data Sources</h2>
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="ac-title">Metabase (Athena / Iceberg)</div>
+          <div class="ac-val">cosmos-metabase.brightmoney.co</div>
+          <div class="ac-sub">Database ID: 2 &nbsp;|&nbsp; User: n8n-bot@brightmoney.co</div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Table: <code>iceberg_db.affiliate__affiliate_revenue__entity</code></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Key fields: <code>payout_date</code>, <code>partner</code>, <code>payout</code>, <code>conversion_type</code>, <code>l1_conversion</code>, <code>l2_conversion</code>, <code>account</code></div>
+        </div>
+        <div class="about-card">
+          <div class="ac-title">Google Sheet — Cash Collections</div>
+          <div class="ac-val">New R : finance</div>
+          <div class="ac-sub">Sheet ID: <code style="font-size:10px">1EJPJubKrClHduO-_EgK-6Sh53dTB7Mmf0o5NHgxVsnQ</code></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">GID: 1688298716 &nbsp;|&nbsp; Header row: 10 &nbsp;|&nbsp; Data starts row: 11</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Auth: Service account key (<code>google_sa_key.json</code>)</div>
+        </div>
+        <div class="about-card">
+          <div class="ac-title">Manual Inputs</div>
+          <div class="ac-val">manual_inputs.yaml</div>
+          <div class="ac-sub">Optional overrides checked each run</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Fields: <code>close_month</code> (default: current month − 1), <code>signoffs</code> (partner × cycle sign-off flags)</div>
+        </div>
+        <div class="about-card">
+          <div class="ac-title">Pipeline Schedule</div>
+          <div class="ac-val">Daily 9:00 AM IST</div>
+          <div class="ac-sub">Cron: 03:30 UTC — run_recon.py</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Email report: 03:50 UTC — run_email_report.py</div>
+          <div style="margin-top:4px;font-size:11px;color:var(--muted)">Slack alert on FAILED or PARTIAL runs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3: SQL Queries -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">3</span> SQL Queries</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">All queries run via Metabase <code>/api/dataset</code> endpoint against Athena (database_id=2). SQL files live in <code>queries/</code> — edit there to change what's pulled.</p>
+
+      <details open><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">reports_by_payout_cycle.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Recon &gt; Payout vs Invoice &nbsp;|&nbsp; all history</span></summary>
+        <pre class="sql-block">{{ sql_reports | e }}</pre>
+      </details>
+
+      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">daily_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: day-on-day &amp; heatmap &nbsp;|&nbsp; last 60 days &nbsp;|&nbsp; MoneyLion sub-partners kept split</span></summary>
+        <pre class="sql-block">{{ sql_daily | e }}</pre>
+      </details>
+
+      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">weekly_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: week-on-week &nbsp;|&nbsp; last 16 weeks</span></summary>
+        <pre class="sql-block">{{ sql_weekly | e }}</pre>
+      </details>
+
+      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">monthly_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: month-on-month &nbsp;|&nbsp; last 13 months</span></summary>
+        <pre class="sql-block">{{ sql_monthly | e }}</pre>
+      </details>
+    </div>
+
+    <!-- 4: Partner Name Mapping -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">4</span> Partner Name Mapping</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Raw DB partner names are normalised differently in each context. The Recon tab collapses all MoneyLion sub-partners; Monitor keeps them split.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>DB Partner Name(s)</th><th>Recon (canonical)</th><th>Monitor display</th><th>GSheet name</th></tr></thead>
+        <tbody>
+          <tr><td><code style="font-size:10px">EngineAPI, EngineCC, EngineSDK, EngineStatic</code></td><td><span class="partner-dot moneylion"></span>MoneyLion</td><td><em>kept split</em> (EngineAPI, EngineCC…)</td><td>Engine</td></tr>
+          <tr><td><code style="font-size:10px">AmoneAPI</code></td><td><span class="partner-dot amone"></span>AmONE</td><td>AmONE</td><td>AmOne</td></tr>
+          <tr><td><code style="font-size:10px">PBrigit</code></td><td><span class="partner-dot brigit"></span>Brigit</td><td>Brigit</td><td>Brigit</td></tr>
+          <tr><td><code style="font-size:10px">Pkashkick</code></td><td><span class="partner-dot kashkick"></span>Kashkick</td><td>Kashkick</td><td>Kashkick</td></tr>
+          <tr><td><code style="font-size:10px">PFreecash</code></td><td><span class="partner-dot freecash"></span>Freecash</td><td>Freecash</td><td>Freecash</td></tr>
+          <tr><td><code style="font-size:10px">PSupermoney</code></td><td><span class="partner-dot supermoney"></span>Supermoney</td><td>SuperMoney</td><td>Supermoney</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- 5: Partner Configuration -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--amber-bg);color:var(--amber-text);">5</span> Partner Configuration</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Partner</th><th>Payout Cycles</th><th>Payment Term</th><th>Accel. Charge</th><th>GSheet Name</th></tr></thead>
+        <tbody>{% for p, cfg in partner_config.items() %}<tr>
+          <td><span class="partner-dot {{ p }}"></span><strong>{{ partner_display[p] }}</strong></td>
+          <td>{{ cfg.cycles }}</td>
+          <td>{{ cfg.payment_term }} days</td>
+          <td>{{ cfg.accel_charge }}</td>
+          <td><code style="font-size:11px">{{ cfg.gsheet_name }}</code></td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px"><strong>Cycle logic (MoneyLion):</strong> payout_date day &le; 15 → C1 &nbsp;|&nbsp; day &gt; 15 → C2. All other partners: single cycle C1.</p>
+    </div>
+
+    <!-- 6: Status Logic & Variance Thresholds -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">6</span> Status Logic &amp; Variance Thresholds</h2>
+
+      <h3 style="margin-bottom:10px">Payout vs Invoice — Monthly Reconciliation</h3>
+      <div class="about-grid" style="margin-bottom:16px">
+        <div>
+          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Color (GREEN / RED)</p>
+          <div class="rule-row"><span class="rule-condition">Reports $ &ge; Invoice $</span><span class="rule-result" style="color:var(--green-text)">GREEN</span></div>
+          <div class="rule-row"><span class="rule-condition">Reports $ &lt; Invoice $</span><span class="rule-result" style="color:var(--red-text)">RED</span></div>
+          <div class="rule-row"><span class="rule-condition">payout_month &ge; current_month</span><span class="rule-result" style="color:var(--grey-text)">PENDING</span></div>
+        </div>
+        <div>
+          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Variance Status (Low / Medium / High)</p>
+          <div class="rule-row"><span class="rule-condition">|delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">Low</span></div>
+          <div class="rule-row"><span class="rule-condition">2% &le; |delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">Medium</span></div>
+          <div class="rule-row"><span class="rule-condition">|delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">High</span></div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:16px"><strong>Note:</strong> MoneyLion &amp; AmONE use wider thresholds for the Cumulative status badge: Green &lt;5%, Amber 5–10%, Red &gt;10%. Other partners: Green &lt;2%, Amber 2–5%, Red &ge;5%.</p>
+
+      <h3 style="margin-bottom:10px">Cash Collections (Invoice vs Cash Received)</h3>
+      <div class="rule-row"><span class="rule-condition">Received $ &ge; Invoiced $</span><span class="rule-result" style="color:var(--green-text)">GREEN &nbsp;(positive delta)</span></div>
+      <div class="rule-row"><span class="rule-condition">Received $ &lt; Invoiced $</span><span class="rule-result" style="color:var(--red-text)">RED &nbsp;(shortfall)</span></div>
+      <div class="rule-row"><span class="rule-condition">|net delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">Low variance</span></div>
+      <div class="rule-row"><span class="rule-condition">2% &le; |net delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">Medium variance</span></div>
+      <div class="rule-row" style="margin-bottom:16px"><span class="rule-condition">|net delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">High variance</span></div>
+      <p style="font-size:11px;color:var(--muted)">Delta = Received − Invoiced. Net delta accounts for acceleration charge deductions where applicable. Rows marked "Signed Off" have product sign-off (product_signoff = Yes in the sheet).</p>
+    </div>
+
+    <!-- 7: System Configuration -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">7</span> System Configuration</h2>
+      <div class="tbl-wrap"><table class="cfg-tbl">
+        <thead><tr><th>Setting</th><th>Value</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Close month</td><td><code>current_month − 1</code> (dynamic)</td><td>Auto-derived each run; can be overridden in <code>manual_inputs.yaml</code></td></tr>
+          <tr><td>Daily data window</td><td>Last 60 days</td><td>daily_by_partner.sql — used for day-on-day chart &amp; heatmap</td></tr>
+          <tr><td>Weekly data window</td><td>Last 16 weeks</td><td>weekly_by_partner.sql — WoW chart</td></tr>
+          <tr><td>Monthly data window</td><td>Last 13 months</td><td>monthly_by_partner.sql — MoM chart</td></tr>
+          <tr><td>Heatmap window</td><td>Last 14 days</td><td>Shown in Monitor &gt; Day-on-Day section</td></tr>
+          <tr><td>Health log retention</td><td>90 entries</td><td>health_log.json — older entries are pruned</td></tr>
+          <tr><td>Email log retention</td><td>90 entries</td><td>email_log.json</td></tr>
+          <tr><td>Metabase DB ID</td><td>2 (Athena / Iceberg)</td><td>METABASE_DATABASE_ID in config.py</td></tr>
+          <tr><td>Google Sheet header</td><td>Row 10</td><td>Data starts row 11, GID 1688298716</td></tr>
+          <tr><td>Acceleration charge</td><td>3% (MoneyLion only)</td><td>Applied when payment term &lt; 30 days</td></tr>
+          <tr><td>Slack alerts</td><td>On FAILED or PARTIAL runs</td><td>Webhook URL via SLACK_WEBHOOK_URL env var</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /p0 About -->
+
+  <!-- ══ TAB 1 — Recon (sub-tabs) ══ -->
   <div class="tab-panel p1">
+  <input type="radio" id="recon-tab1" name="recon-tabs" checked>
+  <input type="radio" id="recon-tab2" name="recon-tabs">
+  <div class="sub-nav-bar">
+    <label for="recon-tab1"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Payout vs Invoice</label>
+    <label for="recon-tab2"><span class="tab-dot {% if l3 %}{% if l3.overall_status == 'GREEN' %}dot-green{% elif l3.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Cash Collections</label>
+  </div>
+  <div class="sub-panel rp1">
   {% if l1 %}
     <div class="section"><h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Monthly Reconciliation</h2>
       <div class="filter-bar"><label>Partner:</label>
@@ -382,14 +517,14 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
         <select id="f1m-month-from" onchange="applyFilter('t1m')"><option value="">From</option>{% for m in l1_months %}<option>{{ m }}</option>{% endfor %}</select>
         <select id="f1m-month-to" onchange="applyFilter('t1m')"><option value="">To</option>{% for m in l1_months|reverse %}<option>{{ m }}</option>{% endfor %}</select>
         <div class="status-checks">
-          <label><input type="checkbox" value="GREEN" checked onchange="applyFilter('t1m')">GREEN</label>
-          <label><input type="checkbox" value="AMBER" checked onchange="applyFilter('t1m')">AMBER</label>
-          <label><input type="checkbox" value="RED" checked onchange="applyFilter('t1m')">RED</label>
-          <label><input type="checkbox" value="GREY" checked onchange="applyFilter('t1m')">GREY</label>
+          <label><input type="checkbox" value="Low" checked onchange="applyFilter('t1m')">Low</label>
+          <label><input type="checkbox" value="Medium" checked onchange="applyFilter('t1m')">Medium</label>
+          <label><input type="checkbox" value="High" checked onchange="applyFilter('t1m')">High</label>
+          <label><input type="checkbox" value="Pending" checked onchange="applyFilter('t1m')">Pending</label>
         </div><button onclick="resetFilter('t1m')">Reset</button></div>
       <div class="tbl-wrap"><table id="t1m">
         <thead><tr><th onclick="sortTable('t1m',0)">Month <span class="sort-ind"></span></th><th onclick="sortTable('t1m',1)">Partner</th><th onclick="sortTable('t1m',2)">Cycle</th><th class="num" onclick="sortTable('t1m',3)">Invoice $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',4)">Reports $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',5)">Delta $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',6)">Delta % <span class="sort-ind"></span></th><th onclick="sortTable('t1m',7)">Status</th><th>Comments</th></tr></thead>
-        <tbody>{% for r in l1.monthly_detail %}<tr data-partner="{{ r.partner }}" data-month="{{ r.month }}" data-status="{{ r.status }}"><td>{{ r.month }}</td><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td>{{ r.cycle }}</td><td class="num">${{ "{:,.2f}".format(r.invoice_amount if r.invoice_amount is defined else r.reports_amount) }}</td><td class="num">${{ "{:,.2f}".format(r.reports_amount) }}</td><td class="num {{ 'var-pos' if r.delta >= 0 else 'var-neg' }}">${{ "{:,.2f}".format(r.delta) }}</td><td class="num {{ 'var-pos' if r.delta_pct is not none and r.delta_pct >= 0 else 'var-neg' }}">{{ "{:.2f}%".format(r.delta_pct) if r.delta_pct is not none else '—' }}</td><td><span class="badge {{ r.status }}">{{ r.status }}</span></td><td><input class="comment-input" type="text" placeholder="Add note..."></td></tr>{% endfor %}</tbody>
+        <tbody>{% for r in l1.monthly_detail %}<tr data-partner="{{ r.partner }}" data-month="{{ r.payout_month }}" data-status="{{ r.monthly_status }}"><td>{{ r.payout_month }}</td><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td>{{ r.cycle }}</td><td class="num">${{ "{:,.2f}".format(r.invoice_amount if r.invoice_amount is defined else r.reports_amount) }}</td><td class="num">${{ "{:,.2f}".format(r.reports_amount) }}</td><td class="num {{ 'var-pos' if r.delta >= 0 else 'var-neg' }}">${{ "{:,.2f}".format(r.delta) }}</td><td class="num {{ 'var-pos' if r.delta_pct is not none and r.delta_pct >= 0 else 'var-neg' }}">{{ "{:.2f}%".format(r.delta_pct) if r.delta_pct is not none else '—' }}</td><td><span style="color:var(--{{ r.monthly_color }}-text);font-weight:700">{{ r.monthly_status }}</span></td><td><input class="comment-input" type="text" placeholder="Add note..."></td></tr>{% endfor %}</tbody>
       </table></div></div>
     <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Cumulative To-Date</h2>
       <div class="tbl-wrap"><table id="t1c">
@@ -397,13 +532,17 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
         <tbody>{% for r in l1.cumulative %}<tr data-partner="{{ r.partner }}" data-status="{{ r.status }}"><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td class="num">${{ "{:,.2f}".format(r.total_invoice) }}</td><td class="num">${{ "{:,.2f}".format(r.total_reports) }}</td><td class="num {{ 'var-pos' if r.total_delta >= 0 else 'var-neg' }}">${{ "{:,.2f}".format(r.total_delta) }}</td><td class="num">{{ "{:.2f}%".format(r.delta_pct) if r.delta_pct is not none else '—' }}</td><td><span class="badge {{ r.status }}">{{ r.status }}</span></td><td class="num">{{ r.month_count }}</td><td><input class="comment-input" type="text" placeholder="Add note..."></td></tr>{% endfor %}
         {% if l1.grand_total %}<tr class="grand-total"><td><strong>{{ l1.grand_total.display_name }}</strong></td><td class="num">${{ "{:,.2f}".format(l1.grand_total.total_invoice) }}</td><td class="num">${{ "{:,.2f}".format(l1.grand_total.total_reports) }}</td><td class="num">${{ "{:,.2f}".format(l1.grand_total.total_delta) }}</td><td class="num">{{ "{:.2f}%".format(l1.grand_total.delta_pct) if l1.grand_total.delta_pct is not none else '—' }}</td><td></td><td class="num">{{ l1.grand_total.month_count }}</td><td></td></tr>{% endif %}</tbody>
       </table></div></div>
+    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">3</span> Month-on-Month Trends</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">One chart per partner &times; cycle &mdash; Invoice $, Reports $, and Delta $ over time. Hover to inspect, drag to pan, scroll to zoom.</p>
+      <div class="chart-grid" id="trend-chart-grid"></div>
+    </div>
   {% else %}<div class="section"><p style="color:var(--muted)">Payout vs Invoice data not available.</p></div>{% endif %}
-  </div>
+  </div><!-- /rp1 -->
 
-  <!-- ══ TAB 2 — Invoice vs Cash (Live) ══ -->
-  <div class="tab-panel p2">
+  <!-- Invoice vs Cash sub-tab -->
+  <div class="sub-panel rp2">
   {% if l3 %}
-    <div class="note-box"><strong>Live Data Source:</strong> <a href="https://docs.google.com/spreadsheets/d/1EJPJubKrClHduO-_EgK-6Sh53dTB7Mmf0o5NHgxVsnQ/edit?gid=1688298716#gid=1688298716" target="_blank" style="color:var(--green-text);font-weight:600">Google Sheet — New R : finance</a>. Pulled: {{ l3.generated_at_ist }} IST. &nbsp;|&nbsp; Delta = Received - Invoiced. &nbsp;|&nbsp; <span style="color:var(--green-text)">GREEN</span> = Received &ge; Invoiced, <span style="color:var(--red-text)">RED</span> = shortfall. &nbsp;|&nbsp; Status: <strong>Low</strong> &lt;2%, <strong>Medium</strong> 2–5%, <strong>High</strong> &ge;5%.</div>
+    <div class="note-box"><strong>Source:</strong> <a href="https://docs.google.com/spreadsheets/d/1EJPJubKrClHduO-_EgK-6Sh53dTB7Mmf0o5NHgxVsnQ/edit?gid=1688298716#gid=1688298716" target="_blank" style="color:var(--green-text);font-weight:600">Google Sheet — New R : finance</a>. Pulled: {{ l3.generated_at_ist }} IST. &nbsp;|&nbsp; Delta = Received − Invoiced. &nbsp;|&nbsp; <span style="color:var(--green-text)">GREEN</span> = Received &ge; Invoiced &nbsp;|&nbsp; <span style="color:var(--red-text)">RED</span> = shortfall. &nbsp;|&nbsp; Variance: <strong>Low</strong> &lt;2% &nbsp; <strong>Medium</strong> 2–5% &nbsp; <strong>High</strong> &ge;5%.</div>
 
     <div class="section"><h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Cumulative Collection Summary</h2>
       <div class="tbl-wrap"><table id="t3cum">
@@ -436,7 +575,47 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
     </div>
 
   {% else %}<div class="section"><p style="color:var(--muted);">Google Sheet data not available. Ensure google_sa_key.json is in place.</p></div>{% endif %}
-  </div>
+  </div><!-- /rp2 -->
+  </div><!-- /p1 Recon -->
+
+  <!-- ══ TAB 2 — Monitor ══ -->
+  <div class="tab-panel p2">
+
+    <!-- Partner filter -->
+    <div class="filter-bar" id="mon-filter-bar">
+      <label>Partner:</label>
+      <div class="mon-cb-wrap" id="mon-partner-checks"></div>
+      <button id="mon-btn-all" style="padding:5px 14px;font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-family:inherit">All</button>
+      <button id="mon-btn-none" style="padding:5px 14px;font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-family:inherit">None</button>
+    </div>
+
+    <!-- KPI -->
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> KPI Summary</h2>
+      <div class="kpi-grid" id="mon-kpi-grid"></div>
+    </div>
+
+    <!-- Day-on-Day -->
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--green-bg);color:var(--green-text);">2</span> Day-on-Day Payouts <span style="font-size:12px;font-weight:400;color:var(--muted)">(last 30 days)</span></h2>
+      <div class="chart-card" id="mon-daily-chart" style="padding:16px"></div>
+      <div class="tbl-wrap" style="margin-top:16px"><table id="mon-heatmap-tbl"></table></div>
+    </div>
+
+    <!-- Week-on-Week -->
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">3</span> Week-on-Week Payouts <span style="font-size:12px;font-weight:400;color:var(--muted)">(last 13 weeks)</span></h2>
+      <div class="chart-card" id="mon-weekly-chart" style="padding:16px"></div>
+    </div>
+
+    <!-- Month-on-Month -->
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">4</span> Month on Month Payouts <span style="font-size:12px;font-weight:400;color:var(--muted)">(last 13 months)</span></h2>
+      <div class="chart-card" id="mon-mom-chart" style="padding:16px"></div>
+      <div class="tbl-wrap" style="margin-top:16px"><table id="mon-mom-tbl"></table></div>
+    </div>
+
+  </div><!-- /p2 Monitor -->
 
   <!-- ══ TAB 3 — Health ══ -->
   <div class="tab-panel p3">
@@ -497,15 +676,16 @@ html.dark .health-card { background:#0f172a; border-color:#334155; }
     <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">4</span> Refresh Schedule</h2>
       <div class="note-box">Dashboard refreshes daily at <strong>9:00 AM IST</strong> (3:30 AM UTC) via cron job. Slack alerts are sent on failure.</div>
     </div>
-  </div>
+  </div><!-- /p3 Health -->
 
 </div><!-- /tab-wrapper -->
 </div><!-- /body-wrap -->
 
-<div class="footer">Data pulled: {{ pull_timestamp_ist or '—' }} IST &nbsp;&bull;&nbsp; Dashboard generated: {{ generated_at }} IST &nbsp;&bull;&nbsp; Bright Money Affiliates Recon</div>
+<div class="footer">Dashboard generated: {{ generated_at }} IST &nbsp;&bull;&nbsp; Affiliates Analytics</div>
 
 </div><!-- /container -->
 
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script>
 function applyFilter(tableId) {
   var tbl = document.getElementById(tableId); if (!tbl) return;
@@ -567,6 +747,441 @@ function toggleDark() {
   }
 })();
 
+/* ── Trend charts (Plotly) ── */
+(function() {
+  var TREND_DATA = {{ chart_data_json }};
+  var PARTNER_COLORS = {
+    moneylion:'#3b82f6', amone:'#8b5cf6', kashkick:'#0d9488',
+    freecash:'#22c55e', brigit:'#f97316', supermoney:'#e11d48'
+  };
+  function buildCharts() {
+    var grid = document.getElementById('trend-chart-grid');
+    if (!grid || !window.Plotly) return;
+    grid.innerHTML = '';
+    var isDark = document.documentElement.classList.contains('dark');
+    var fontColor = isDark ? '#e2e8f0' : '#1a1a2e';
+    var gridColor = isDark ? '#334155' : '#e2e8f0';
+    var paperBg   = isDark ? '#1e293b' : '#ffffff';
+    var cfg = { responsive:true, displayModeBar:false, scrollZoom:false };
+    var groups = {};
+    TREND_DATA.forEach(function(r) {
+      var key = r.partner + '|' + r.cycle;
+      if (!groups[key]) groups[key] = { partner:r.partner, display_name:r.display_name, cycle:r.cycle, rows:[] };
+      groups[key].rows.push(r);
+    });
+    Object.values(groups).forEach(function(g) {
+      g.rows.sort(function(a,b){ return a.payout_month.localeCompare(b.payout_month); });
+      var _cutoff = new Date(); _cutoff.setMonth(_cutoff.getMonth() - 12);
+      var _cutoffStr = _cutoff.getFullYear() + '-' + ('0' + (_cutoff.getMonth() + 1)).slice(-2);
+      g.rows = g.rows.filter(function(r){ return r.payout_month >= _cutoffStr; });
+    });
+    var SKIP = { 'moneylion|C3':1, 'supermoney|C1':1 };
+    var sorted = Object.values(groups).filter(function(g){
+      return !SKIP[g.partner + '|' + g.cycle];
+    }).sort(function(a,b){
+      return a.partner.localeCompare(b.partner) || a.cycle.localeCompare(b.cycle);
+    });
+    sorted.forEach(function(g) {
+      var months    = g.rows.map(function(r){ return r.payout_month; });
+      var invoices  = g.rows.map(function(r){ return r.invoice_amount; });
+      var reports   = g.rows.map(function(r){ return r.reports_amount; });
+      var deltas    = g.rows.map(function(r){ return r.delta; });
+      var deltaPcts = g.rows.map(function(r){ return r.delta_pct; });
+      var baseColor = PARTNER_COLORS[g.partner] || '#64748b';
+      var label = g.display_name + ' — ' + g.cycle;
+      var baseLayout = {
+        dragmode: false,
+        height: 280,
+        margin: { t:44, b:64, l:72, r:20 },
+        legend: { orientation:'h', y:-0.3, font:{ size:11, color:fontColor } },
+        xaxis: { tickangle:-45, tickfont:{ size:10, color:fontColor }, gridcolor:gridColor, automargin:true },
+        plot_bgcolor: 'transparent', paper_bgcolor: paperBg,
+        font: { family:'Inter,system-ui,sans-serif', color:fontColor }
+      };
+
+      /* row wrapper — both charts side by side */
+      var row = document.createElement('div');
+      row.className = 'chart-row';
+      grid.appendChild(row);
+
+      /* Chart 1: Invoice vs Reports */
+      var c1 = document.createElement('div');
+      c1.className = 'chart-card';
+      c1.id = 'tchart-ir-' + g.partner + '-' + g.cycle;
+      row.appendChild(c1);
+      Plotly.newPlot(c1, [
+        { x:months, y:invoices, name:'Invoice $', type:'bar',
+          marker:{ color:baseColor, opacity:0.9 } },
+        { x:months, y:reports,  name:'Reports $', type:'bar',
+          marker:{ color:baseColor, opacity:0.4, line:{ color:baseColor, width:1 } } }
+      ], Object.assign({}, baseLayout, {
+        title:{ text: label + ' | Invoice vs Reports',
+                font:{ size:12, color:fontColor, family:'Inter,system-ui,sans-serif' }, x:0.04 },
+        barmode:'group',
+        yaxis: Object.assign({}, { tickformat:'$,.0f', tickfont:{ size:10, color:fontColor },
+               gridcolor:gridColor, title:{ text:'$', font:{ size:11, color:fontColor } } })
+      }), cfg);
+
+      /* Chart 2: Delta $ */
+      var c2 = document.createElement('div');
+      c2.className = 'chart-card';
+      c2.id = 'tchart-d-' + g.partner + '-' + g.cycle;
+      row.appendChild(c2);
+      Plotly.newPlot(c2, [
+        { x:months, y:deltas, name:'Delta $', type:'scatter', mode:'lines+markers',
+          line:{ color:'#f97316', width:2 }, marker:{ size:6, color:'#f97316' } }
+      ], Object.assign({}, baseLayout, {
+        title:{ text: label + ' | Delta $',
+                font:{ size:12, color:fontColor, family:'Inter,system-ui,sans-serif' }, x:0.04 },
+        yaxis: { tickformat:'$,.0f', tickfont:{ size:10, color:fontColor },
+                 gridcolor:gridColor, zeroline:true, zerolinecolor:'#94a3b8', zerolinewidth:1,
+                 title:{ text:'Delta $', font:{ size:11, color:'#f97316' } } }
+      }), cfg);
+
+      /* Chart 3: Delta % */
+      var c3 = document.createElement('div');
+      c3.className = 'chart-card';
+      c3.id = 'tchart-dp-' + g.partner + '-' + g.cycle;
+      row.appendChild(c3);
+      Plotly.newPlot(c3, [
+        { x:months, y:deltaPcts, name:'Delta %', type:'scatter', mode:'lines+markers',
+          line:{ color:'#a78bfa', width:2 }, marker:{ size:6, color:'#a78bfa' } }
+      ], Object.assign({}, baseLayout, {
+        title:{ text: label + ' | Delta %',
+                font:{ size:12, color:fontColor, family:'Inter,system-ui,sans-serif' }, x:0.04 },
+        yaxis: { tickformat:'.2f', ticksuffix:'%', tickfont:{ size:10, color:fontColor },
+                 gridcolor:gridColor, zeroline:true, zerolinecolor:'#94a3b8', zerolinewidth:1,
+                 title:{ text:'Delta %', font:{ size:11, color:'#a78bfa' } } }
+      }), cfg);
+    });
+  }
+  function resizeCharts() {
+    document.querySelectorAll('[id^="tchart-"]').forEach(function(el) {
+      if (window.Plotly) Plotly.Plots.resize(el);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    buildCharts();
+    var tab1Radio = document.getElementById('tab1');
+    if (tab1Radio) tab1Radio.addEventListener('change', function() {
+      if (this.checked) setTimeout(resizeCharts, 50);
+    });
+    document.querySelector('.dark-toggle') && document.querySelector('.dark-toggle').addEventListener('click', function() {
+      setTimeout(buildCharts, 50);
+    });
+  });
+})();
+
+/* ── Monitor tab ── */
+(function() {
+  var MON = {{ monitor_data_json }};
+  var PALETTE = [
+    '#3b82f6','#1d4ed8','#60a5fa','#93c5fd','#bfdbfe',
+    '#8b5cf6','#0d9488','#22c55e','#f97316','#e11d48',
+    '#ec4899','#f59e0b','#10b981','#6366f1','#84cc16','#06b6d4'
+  ];
+  /* Stable partner → palette index mapping so colors stay consistent after filter */
+  var PARTNER_IDX = {};
+  (function() {
+    var all = [];
+    var seen = {};
+    [(MON.daily||[]),(MON.weekly||[]),(MON.monthly||[])].forEach(function(arr) {
+      arr.forEach(function(r) { if (!seen[r.partner]) { seen[r.partner]=1; all.push(r.partner); } });
+    });
+    all.sort().forEach(function(p, i) { PARTNER_IDX[p] = i; });
+  })();
+
+  function fmtDollar(v) { return v == null ? '—' : '$' + Math.round(v).toLocaleString('en-US'); }
+  function fmtK(v) {
+    if (v == null || v === 0) return '—';
+    return v >= 1000 ? '$' + (v / 1000).toFixed(1) + 'k' : '$' + Math.round(v);
+  }
+  function plotColors(isDark) {
+    return {
+      fc: isDark ? '#e2e8f0' : '#1a1a2e',
+      gc: isDark ? '#334155' : '#e2e8f0',
+      pb: isDark ? '#1e293b' : '#ffffff'
+    };
+  }
+
+  /* ── Partner filter ── */
+  function getAllPartners() {
+    var all = []; var seen = {};
+    [(MON.daily||[]),(MON.weekly||[]),(MON.monthly||[])].forEach(function(arr) {
+      arr.forEach(function(r) { if (!seen[r.partner]) { seen[r.partner]=1; all.push(r.partner); } });
+    });
+    return all.sort();
+  }
+  function buildPartnerFilter() {
+    var wrap = document.getElementById('mon-partner-checks'); if (!wrap) return;
+    var partners = getAllPartners();
+    var html = '';
+    partners.forEach(function(p) {
+      var color = PALETTE[PARTNER_IDX[p] % PALETTE.length];
+      html += '<label class="mon-cb-label" style="border-left:3px solid ' + color + '">'
+            + '<input type="checkbox" class="mon-pcb" value="' + p + '" checked> ' + p + '</label>';
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.mon-pcb').forEach(function(cb) {
+      cb.addEventListener('change', applyFilter);
+    });
+    document.getElementById('mon-btn-all') && document.getElementById('mon-btn-all').addEventListener('click', function() {
+      wrap.querySelectorAll('.mon-pcb').forEach(function(cb) { cb.checked = true; });
+      applyFilter();
+    });
+    document.getElementById('mon-btn-none') && document.getElementById('mon-btn-none').addEventListener('click', function() {
+      wrap.querySelectorAll('.mon-pcb').forEach(function(cb) { cb.checked = false; });
+      applyFilter();
+    });
+  }
+  function getSelectedPartners() {
+    var cbs = document.querySelectorAll('.mon-pcb');
+    var sel = [];
+    cbs.forEach(function(cb) { if (cb.checked) sel.push(cb.value); });
+    return sel.length ? sel : getAllPartners();
+  }
+  function applyFilter() {
+    var isDark = document.documentElement.classList.contains('dark');
+    var sel = getSelectedPartners();
+    buildKPIs();
+    renderChart('mon-daily-chart',  MON.daily,  'date',       isDark, sel);
+    renderChart('mon-weekly-chart', MON.weekly, 'week_start', isDark, sel);
+    renderHeatmap(sel);
+    renderMoMChart(isDark, sel);
+    renderMoMTable(sel);
+  }
+
+  /* ── KPI cards (no partner filter — always aggregate) ── */
+  function buildKPIs() {
+    var grid = document.getElementById('mon-kpi-grid'); if (!grid || !MON.kpis) return;
+    var k = MON.kpis; var wtd = k.wtd || {}; var mtd = k.mtd || {};
+    var wowHtml = '';
+    if (wtd.wow_pct != null) {
+      var cls = wtd.wow_pct >= 0 ? 'kpi-up' : 'kpi-down';
+      wowHtml = '<div class="kpi-sub ' + cls + '">' + (wtd.wow_pct >= 0 ? '▲' : '▼') + ' '
+              + Math.abs(wtd.wow_pct).toFixed(1) + '% vs same days last wk</div>';
+    }
+    var lwHtml = '';
+    if (wtd.lfw_total != null) {
+      var lwPct = wtd.lw_vs_llw_pct;
+      var lwCls = (lwPct != null && lwPct >= 0) ? 'kpi-up' : 'kpi-down';
+      var lwPctStr = lwPct != null ? ' (' + (lwPct >= 0 ? '▲' : '▼') + ' ' + Math.abs(lwPct).toFixed(1) + '% vs wk before)' : '';
+      lwHtml = '<div style="font-size:11px;color:var(--muted);margin-top:6px">Last wk: <span class="' + lwCls + '" style="font-weight:600">'
+             + fmtDollar(wtd.lfw_total) + '</span>' + lwPctStr + '</div>';
+    }
+    grid.style.gridTemplateColumns = 'repeat(2,minmax(0,360px))';
+    grid.innerHTML =
+      '<div class="kpi-card"><div class="kpi-label">WTD</div>'
+      + '<div class="kpi-value">' + fmtDollar(wtd.total) + '</div>'
+      + wowHtml + lwHtml
+      + '<div style="font-size:11px;color:var(--subtle);margin-top:4px">Wk of ' + (wtd.week_start||'—') + '</div></div>'
+      + '<div class="kpi-card"><div class="kpi-label">MTD</div>'
+      + '<div class="kpi-value">' + fmtDollar(mtd.total) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:6px">Since ' + (mtd.month_start||'—') + '</div></div>';
+  }
+
+  /* ── Stacked bar chart with totals on top ── */
+  function renderChart(elId, records, xField, isDark, selPartners) {
+    var el = document.getElementById(elId); if (!el || !records || !records.length) return;
+    var c = plotColors(isDark);
+    var allX = []; var xs = {};
+    records.forEach(function(r) { if (!xs[r[xField]]) { xs[r[xField]]=1; allX.push(r[xField]); } });
+    allX.sort();
+    var keep = allX.slice(xField === 'date' ? -30 : -13);
+    /* build lookup */
+    var lookup = {};
+    records.forEach(function(r) {
+      if (!lookup[r.partner]) lookup[r.partner] = {};
+      lookup[r.partner][r[xField]] = r.payout;
+    });
+    var filtered = selPartners.filter(function(p) { return lookup[p]; });
+    var traces = filtered.map(function(p) {
+      var color = PALETTE[PARTNER_IDX[p] % PALETTE.length];
+      return {
+        x: keep,
+        y: keep.map(function(x) { return (lookup[p] && lookup[p][x]) || 0; }),
+        name: p, type: 'bar',
+        marker: { color: color },
+        hovertemplate: (xField === 'date' ? '%{x}' : 'Wk %{x}') + '<br>' + p + ': $%{y:,.0f}<extra></extra>'
+      };
+    });
+    /* totals trace — text on top of each stacked bar */
+    var totals = keep.map(function(x) {
+      var t = 0;
+      filtered.forEach(function(p) { t += (lookup[p] && lookup[p][x]) || 0; });
+      return t;
+    });
+    traces.push({
+      x: keep, y: totals,
+      text: totals.map(function(v) { return v > 0 ? fmtK(v) : ''; }),
+      mode: 'text', type: 'scatter',
+      textposition: 'top center',
+      textfont: { size: 9, color: c.fc },
+      showlegend: false, hoverinfo: 'skip'
+    });
+    Plotly.newPlot(el, traces, {
+      barmode: 'stack', dragmode: false, height: 380,
+      margin: { t:30, b:90, l:80, r:20 },
+      legend: { orientation:'h', y:-0.4, font:{ size:11, color:c.fc } },
+      xaxis: { tickangle:-45, tickfont:{ size:10, color:c.fc }, gridcolor:c.gc, automargin:true },
+      yaxis: { tickformat:'$,.0f', tickfont:{ size:10, color:c.fc }, gridcolor:c.gc,
+               title:{ text:'Payout $', font:{ size:11, color:c.fc } } },
+      plot_bgcolor:'transparent', paper_bgcolor:c.pb,
+      font: { family:'Inter,system-ui,sans-serif', color:c.fc }
+    }, { responsive:true, displayModeBar:false, scrollZoom:false });
+  }
+
+  /* ── Heatmap table (day × partner, last 14 days) ── */
+  function renderHeatmap(selPartners) {
+    var tbl = document.getElementById('mon-heatmap-tbl');
+    if (!tbl || !MON.daily || !MON.daily.length) return;
+    var allDates = []; var ds = {};
+    MON.daily.forEach(function(r) { if (!ds[r.date]) { ds[r.date]=1; allDates.push(r.date); } });
+    allDates.sort();
+    var dates = allDates.slice(-14);
+    var data = {};
+    MON.daily.forEach(function(r) {
+      if (!data[r.partner]) data[r.partner] = {};
+      data[r.partner][r.date] = r.payout;
+    });
+    var filtered = selPartners.filter(function(p) { return data[p]; });
+    var allVals = MON.daily.filter(function(r) { return selPartners.indexOf(r.partner) >= 0; }).map(function(r) { return r.payout; });
+    var maxVal = allVals.length ? Math.max.apply(null, allVals) : 1;
+    var html = '<thead><tr><th style="white-space:nowrap">Partner</th>';
+    dates.forEach(function(d) { html += '<th class="num" style="font-size:10px">' + d.slice(5) + '</th>'; });
+    html += '<th class="num" style="font-size:10px">Total</th></tr></thead><tbody>';
+    filtered.forEach(function(p) {
+      var rowTot = 0;
+      html += '<tr><td style="white-space:nowrap;font-weight:600;font-size:11px">' + p + '</td>';
+      dates.forEach(function(d) {
+        var v = (data[p] && data[p][d]) || 0; rowTot += v;
+        var alpha = v > 0 ? (0.1 + 0.7 * v / maxVal).toFixed(2) : '0';
+        html += '<td class="num" style="background:rgba(59,130,246,' + alpha + ');font-size:11px">' + fmtK(v) + '</td>';
+      });
+      html += '<td class="num" style="font-weight:700;font-size:11px">' + fmtK(rowTot) + '</td></tr>';
+    });
+    html += '<tr class="grand-total"><td><strong>Total</strong></td>';
+    var gt = 0;
+    dates.forEach(function(d) {
+      var col = 0;
+      filtered.forEach(function(p) { col += (data[p] && data[p][d]) || 0; });
+      gt += col;
+      html += '<td class="num" style="font-size:11px"><strong>' + fmtK(col) + '</strong></td>';
+    });
+    html += '<td class="num" style="font-weight:800;font-size:11px"><strong>' + fmtK(gt) + '</strong></td></tr></tbody>';
+    tbl.innerHTML = html;
+  }
+
+  /* ── Month-on-Month chart ── */
+  function renderMoMChart(isDark, selPartners) {
+    var el = document.getElementById('mon-mom-chart');
+    if (!el || !MON.monthly || !MON.monthly.length) return;
+    var c = plotColors(isDark);
+    var allMonths = []; var ms = {};
+    MON.monthly.forEach(function(r) { if (!ms[r.month]) { ms[r.month]=1; allMonths.push(r.month); } });
+    allMonths.sort();
+    var lookup = {};
+    MON.monthly.forEach(function(r) {
+      if (!lookup[r.partner]) lookup[r.partner] = {};
+      lookup[r.partner][r.month] = r.payout;
+    });
+    var filtered = selPartners.filter(function(p) { return lookup[p]; });
+    var traces = filtered.map(function(p) {
+      var color = PALETTE[PARTNER_IDX[p] % PALETTE.length];
+      return {
+        x: allMonths,
+        y: allMonths.map(function(m) { return (lookup[p] && lookup[p][m]) || 0; }),
+        name: p, type: 'bar',
+        marker: { color: color },
+        hovertemplate: '%{x}<br>' + p + ': $%{y:,.0f}<extra></extra>'
+      };
+    });
+    /* totals on top */
+    var totals = allMonths.map(function(m) {
+      var t = 0; filtered.forEach(function(p) { t += (lookup[p] && lookup[p][m]) || 0; }); return t;
+    });
+    traces.push({
+      x: allMonths, y: totals,
+      text: totals.map(function(v) { return v > 0 ? fmtK(v) : ''; }),
+      mode: 'text', type: 'scatter',
+      textposition: 'top center',
+      textfont: { size: 10, color: c.fc },
+      showlegend: false, hoverinfo: 'skip'
+    });
+    Plotly.newPlot(el, traces, {
+      barmode: 'stack', dragmode: false, height: 420,
+      margin: { t:30, b:80, l:90, r:20 },
+      legend: { orientation:'h', y:-0.25, font:{ size:11, color:c.fc } },
+      xaxis: { tickangle:-30, tickfont:{ size:11, color:c.fc }, gridcolor:c.gc },
+      yaxis: { tickformat:'$,.0f', tickfont:{ size:10, color:c.fc }, gridcolor:c.gc,
+               title:{ text:'Payout $', font:{ size:11, color:c.fc } } },
+      plot_bgcolor:'transparent', paper_bgcolor:c.pb,
+      font: { family:'Inter,system-ui,sans-serif', color:c.fc }
+    }, { responsive:true, displayModeBar:false, scrollZoom:false });
+  }
+
+  /* ── Month-on-Month table ── */
+  function renderMoMTable(selPartners) {
+    var tbl = document.getElementById('mon-mom-tbl');
+    if (!tbl || !MON.monthly || !MON.monthly.length) return;
+    var allMonths = []; var ms = {};
+    MON.monthly.forEach(function(r) { if (!ms[r.month]) { ms[r.month]=1; allMonths.push(r.month); } });
+    allMonths.sort();
+    var data = {};
+    MON.monthly.forEach(function(r) {
+      if (!data[r.partner]) data[r.partner] = {};
+      data[r.partner][r.month] = r.payout;
+    });
+    var filtered = selPartners.filter(function(p) { return data[p]; });
+    var allVals = MON.monthly.filter(function(r) { return selPartners.indexOf(r.partner) >= 0; }).map(function(r) { return r.payout; });
+    var maxVal = allVals.length ? Math.max.apply(null, allVals) : 1;
+    var html = '<thead><tr><th>Partner</th>';
+    allMonths.forEach(function(m) { html += '<th class="num" style="font-size:10px">' + m + '</th>'; });
+    html += '<th class="num">Total</th></tr></thead><tbody>';
+    filtered.forEach(function(p) {
+      var rowTotal = 0;
+      html += '<tr><td style="font-weight:600;white-space:nowrap;font-size:11px">' + p + '</td>';
+      allMonths.forEach(function(m) {
+        var v = (data[p] && data[p][m]) || 0; rowTotal += v;
+        var alpha = v > 0 ? (0.08 + 0.55 * v / maxVal).toFixed(2) : '0';
+        html += '<td class="num" style="background:rgba(59,130,246,' + alpha + ');font-size:11px">' + (v > 0 ? fmtK(v) : '—') + '</td>';
+      });
+      html += '<td class="num" style="font-weight:700;font-size:11px">' + fmtK(rowTotal) + '</td></tr>';
+    });
+    html += '<tr class="grand-total"><td><strong>Total</strong></td>';
+    var grandTotal = 0;
+    allMonths.forEach(function(m) {
+      var col = 0; filtered.forEach(function(p) { col += (data[p] && data[p][m]) || 0; }); grandTotal += col;
+      html += '<td class="num" style="font-size:11px"><strong>' + fmtK(col) + '</strong></td>';
+    });
+    html += '<td class="num" style="font-weight:800;font-size:11px"><strong>' + fmtK(grandTotal) + '</strong></td></tr></tbody>';
+    tbl.innerHTML = html;
+  }
+
+  function buildMonitor() {
+    if (!window.Plotly || !MON) return;
+    buildPartnerFilter();
+    applyFilter();
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    buildMonitor();
+    var tab2Radio = document.getElementById('tab2');
+    if (tab2Radio) tab2Radio.addEventListener('change', function() {
+      if (!this.checked) return;
+      var sel = getSelectedPartners(); var isDark = document.documentElement.classList.contains('dark');
+      setTimeout(function() {
+        try { ['mon-daily-chart','mon-weekly-chart','mon-mom-chart'].forEach(function(id) {
+          var el = document.getElementById(id); if (window.Plotly && el && el._fullLayout) Plotly.Plots.resize(el);
+        }); } catch(e) {}
+      }, 50);
+    });
+    document.querySelector('.dark-toggle') && document.querySelector('.dark-toggle').addEventListener('click', function() {
+      setTimeout(applyFilter, 50);
+    });
+  });
+})();
+
 /* Hover highlight: all rows with same partner */
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('tr[data-partner]').forEach(function(row) {
@@ -601,7 +1216,7 @@ def main(close_month=None):
         with open(mi_path) as f:
             manual_inputs = yaml.safe_load(f) or {}
     if not close_month:
-        close_month = manual_inputs.get("close_month", config.default_close_month())
+        close_month = config.default_close_month()
 
     signoffs = manual_inputs.get("signoffs", {})
 
@@ -612,10 +1227,16 @@ def main(close_month=None):
                 return json.load(f)
         return None
 
-    validation = load_json("validation_report.json")
+    def read_sql(filename):
+        p = os.path.join(config.QUERIES_DIR, filename)
+        if os.path.exists(p):
+            with open(p) as f:
+                return f.read().strip()
+        return f"-- {filename} not found"
+
     l1 = load_json("l1_results.json")
     l3 = load_json("l3_live_results.json")
-    pull_log = load_json("pull_log.json")
+    monitor = load_json("monitor_data.json")
 
     # Health log
     health_log = []
@@ -645,10 +1266,7 @@ def main(close_month=None):
     if l3 and l3.get("generated_at"):
         l3["generated_at_ist"] = _to_ist(l3["generated_at"])
 
-    pull_ts = pull_log.get("pull_timestamp") if pull_log else None
-    pull_ts_ist = _to_ist(pull_ts) if pull_ts else None
     l1_months = sorted(set(r.get("payout_month") or r.get("month", "") for r in l1["monthly_detail"] if not r.get("is_total_row")), reverse=True) if l1 else []
-    l3_months = sorted(set(r["payout_month"] for r in (l3.get("collected", []) + l3.get("yet_to_receive", [])) if isinstance(r.get("payout_month"), str) and r["payout_month"] not in ("", "NaT")), reverse=True) if l3 else []
     l3_coll_months = sorted(set(r["collection_month"] for r in l3.get("collected", []) if isinstance(r.get("collection_month"), str) and r["collection_month"] not in ("", "NaT")), reverse=True) if l3 else []
 
     class DotDict(dict):
@@ -668,18 +1286,21 @@ def main(close_month=None):
     ctx = {
         "close_month": close_month,
         "generated_at": (datetime.utcnow() + IST_OFFSET).strftime("%Y-%m-%d %H:%M"),
-        "pull_timestamp_ist": pull_ts_ist,
-        "validation": to_dot(validation) if validation else None,
         "l1": to_dot(l1) if l1 else None,
         "l3": to_dot(l3) if l3 else None,
         "l1_months": l1_months,
-        "l3_months": l3_months,
         "l3_coll_months": l3_coll_months,
         "signoffs": to_dot(signoffs),
         "partner_config": {k: DotDict(v) for k, v in config.PARTNER_CONFIG.items()},
         "partner_display": config.PARTNER_DISPLAY_NAMES,
         "health_log": to_dot(health_log),
         "email_log": to_dot(email_log),
+        "chart_data_json": json.dumps(l1["monthly_detail"] if l1 else []),
+        "monitor_data_json": json.dumps(monitor if monitor else {"kpis": {}, "daily": [], "weekly": [], "monthly": []}),
+        "sql_reports": read_sql("reports_by_payout_cycle.sql"),
+        "sql_daily":   read_sql("daily_by_partner.sql"),
+        "sql_weekly":  read_sql("weekly_by_partner.sql"),
+        "sql_monthly": read_sql("monthly_by_partner.sql"),
     }
 
     tmpl = Template(TEMPLATE)

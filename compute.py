@@ -5,7 +5,6 @@ import json
 from datetime import datetime
 
 import pandas as pd
-import numpy as np
 
 import config
 
@@ -86,8 +85,8 @@ def _get_status_p2(partner, variance_pct, invoice_amount, reports_amount):
         return "RED"
 
 
-def _load_q4122():
-    """Load Q4122 reports by payout month and cycle."""
+def _load_reports_data():
+    """Load reports_by_payout_cycle CSV (Metabase pull) by payout month and cycle."""
     df = pd.read_csv(config.QUERIES["reports_by_payout_cycle"]["file"])
     df["partner"] = df["partner"].str.lower()
     df["cycle"] = df["cycle"].str.upper()
@@ -97,11 +96,10 @@ def _load_q4122():
 
 
 def compute_reports_vs_invoice(close_month):
-    """Reports (Q4122) vs Invoice (Google Sheet) — full outer join on (payout_month, partner, cycle)."""
+    """Reports (Metabase) vs Invoice (Google Sheet) — full outer join on (payout_month, partner, cycle)."""
     print(f"[compute] Reports vs Invoice (close_month={close_month})")
 
-    # Load reports data from Q4122
-    q4122 = _load_q4122()
+    reports = _load_reports_data()
 
     # Load invoice data from Google Sheet
     try:
@@ -112,7 +110,7 @@ def compute_reports_vs_invoice(close_month):
 
     # Build reports lookup: (payout_month, partner, cycle) -> reports_revenue
     reports_lookup = {}
-    for _, row in q4122.iterrows():
+    for _, row in reports.iterrows():
         key = (row["payout_month"], row["partner"], row["cycle"])
         reports_lookup[key] = reports_lookup.get(key, 0) + float(row["reports_revenue"])
 
@@ -144,6 +142,22 @@ def compute_reports_vs_invoice(close_month):
         status = _get_status_p2(partner, delta_pct, invoice_amt, reports_amt)
         display_name = config.PARTNER_DISPLAY_NAMES.get(partner, partner.title())
 
+        current_month = datetime.now().strftime("%Y-%m")
+        if payout_month >= current_month:
+            monthly_status = "Pending"
+            monthly_color  = "grey"
+        else:
+            monthly_color  = "green" if reports_amt >= invoice_amt else "red"
+            apct = abs(delta_pct) if delta_pct is not None and not pd.isna(delta_pct) else None
+            if apct is None:
+                monthly_status = "High"
+            elif apct < 2:
+                monthly_status = "Low"
+            elif apct < 5:
+                monthly_status = "Medium"
+            else:
+                monthly_status = "High"
+
         monthly_detail.append({
             "payout_month": payout_month,
             "partner": partner,
@@ -154,6 +168,8 @@ def compute_reports_vs_invoice(close_month):
             "delta": delta,
             "delta_pct": delta_pct,
             "status": status,
+            "monthly_status": monthly_status,
+            "monthly_color":  monthly_color,
         })
 
     # Sort: month desc, partner asc, cycle asc
@@ -218,8 +234,8 @@ def validate_inputs(close_month):
     def log_step(action, detail, status="PASS"):
         cleaning_log.append({"timestamp": datetime.now().isoformat(), "action": action, "detail": detail, "status": status})
 
-    q4122 = _load_q4122()
-    log_step("Load Q4122", f"{len(q4122)} rows loaded from reports_by_payout_cycle.csv")
+    reports = _load_reports_data()
+    log_step("Load reports data", f"{len(reports)} rows loaded from reports_by_payout_cycle.csv")
 
     # Try loading Google Sheet for validation
     gsheet_rows = 0
@@ -231,32 +247,32 @@ def validate_inputs(close_month):
         log_step("Load Google Sheet", f"Failed: {e}", "FAIL")
 
     files_analysis = []
-    # Q4122 analysis
     cols_info = []
-    for c in q4122.columns:
+    for c in reports.columns:
         info = {
-            "name": c, "dtype": str(q4122[c].dtype),
-            "nulls": int(q4122[c].isna().sum()),
-            "null_pct": round(q4122[c].isna().mean() * 100, 2),
-            "sample_values": [str(v) for v in q4122[c].dropna().unique()[:3]],
+            "name": c, "dtype": str(reports[c].dtype),
+            "nulls": int(reports[c].isna().sum()),
+            "null_pct": round(reports[c].isna().mean() * 100, 2),
+            "sample_values": [str(v) for v in reports[c].dropna().unique()[:3]],
         }
-        if pd.api.types.is_numeric_dtype(q4122[c]):
-            info["min"] = float(q4122[c].min()) if not q4122[c].isna().all() else None
-            info["max"] = float(q4122[c].max()) if not q4122[c].isna().all() else None
-        elif q4122[c].dtype == "object":
-            info["min"] = str(q4122[c].dropna().min()) if not q4122[c].isna().all() else None
-            info["max"] = str(q4122[c].dropna().max()) if not q4122[c].isna().all() else None
+        if pd.api.types.is_numeric_dtype(reports[c]):
+            info["min"] = float(reports[c].min()) if not reports[c].isna().all() else None
+            info["max"] = float(reports[c].max()) if not reports[c].isna().all() else None
+        elif reports[c].dtype == "object":
+            info["min"] = str(reports[c].dropna().min()) if not reports[c].isna().all() else None
+            info["max"] = str(reports[c].dropna().max()) if not reports[c].isna().all() else None
         cols_info.append(info)
         if info["null_pct"] > 20:
-            log_step(f"Column: Q4122.{c}", f"null% = {info['null_pct']}%", "FAIL")
+            log_step(f"Column: reports.{c}", f"null% = {info['null_pct']}%", "FAIL")
         elif info["null_pct"] > 5:
-            log_step(f"Column: Q4122.{c}", f"null% = {info['null_pct']}%", "WARN")
+            log_step(f"Column: reports.{c}", f"null% = {info['null_pct']}%", "WARN")
 
-    month_min = str(q4122["payout_month"].dropna().min()) if "payout_month" in q4122.columns else None
-    month_max = str(q4122["payout_month"].dropna().max()) if "payout_month" in q4122.columns else None
+    month_min = str(reports["payout_month"].dropna().min()) if "payout_month" in reports.columns else None
+    month_max = str(reports["payout_month"].dropna().max()) if "payout_month" in reports.columns else None
     files_analysis.append({
-        "label": "Q4122", "file": "reports_by_payout_cycle.csv", "pull_method": "Metabase Q4122",
-        "row_count": len(q4122), "columns": cols_info,
+        "label": "Reports (Metabase)", "file": "reports_by_payout_cycle.csv",
+        "pull_method": "Metabase SQL",
+        "row_count": len(reports), "columns": cols_info,
         "month_range": {"min": month_min, "max": month_max}, "status": "PASS",
     })
     files_analysis.append({
@@ -266,18 +282,18 @@ def validate_inputs(close_month):
     })
 
     # Partner coverage
-    q4122_partners = set(q4122["partner"].unique())
+    reports_partners = set(reports["partner"].unique())
     partner_coverage = []
     for p in config.EXPECTED_PARTNERS:
         display = config.PARTNER_DISPLAY_NAMES.get(p, p)
-        in_q = p in q4122_partners
-        q_rows = int(q4122[q4122["partner"] == p].shape[0]) if in_q else 0
-        status = "PASS" if in_q else "WARN"
-        if not in_q:
-            log_step(f"Partner: {display}", "Not found in Q4122", "WARN")
+        in_reports = p in reports_partners
+        r_rows = int(reports[reports["partner"] == p].shape[0]) if in_reports else 0
+        status = "PASS" if in_reports else "WARN"
+        if not in_reports:
+            log_step(f"Partner: {display}", "Not found in reports data", "WARN")
         partner_coverage.append({
-            "partner": p, "display_name": display, "in_q4122": in_q,
-            "q4122_rows": q_rows, "status": status,
+            "partner": p, "display_name": display, "in_reports": in_reports,
+            "reports_rows": r_rows, "status": status,
         })
 
     overall = "PASS"
@@ -445,4 +461,69 @@ def compute_invoice_vs_cash_live(close_month):
     }
     _save_json("l3_live_results.json", result)
     print(f"[compute] Invoice vs Cash complete — {len(yet_to_receive)} yet-to-receive, {len(collected)} collected")
+    return result
+
+
+def compute_monitor():
+    """Load daily/weekly/monthly payout CSVs and compute KPIs for the Monitor tab."""
+    print("[compute] Monitor data")
+    from datetime import timedelta
+
+    daily_file   = config.QUERIES["daily_by_partner"]["file"]
+    weekly_file  = config.QUERIES["weekly_by_partner"]["file"]
+    monthly_file = config.QUERIES["monthly_by_partner"]["file"]
+
+    daily   = pd.read_csv(daily_file)   if os.path.exists(daily_file)   else pd.DataFrame(columns=["date","partner","payout"])
+    weekly  = pd.read_csv(weekly_file)  if os.path.exists(weekly_file)  else pd.DataFrame(columns=["week_start","partner","payout"])
+    monthly = pd.read_csv(monthly_file) if os.path.exists(monthly_file) else pd.DataFrame(columns=["month","partner","payout"])
+
+    daily["payout"]   = pd.to_numeric(daily["payout"],   errors="coerce").fillna(0)
+    weekly["payout"]  = pd.to_numeric(weekly["payout"],  errors="coerce").fillna(0)
+    monthly["payout"] = pd.to_numeric(monthly["payout"], errors="coerce").fillna(0)
+
+    today      = datetime.now().date()
+    week_start = today - timedelta(days=today.weekday())   # Monday of current week
+    month_start = today.replace(day=1)
+
+    wtd_total = round(float(daily[daily["date"] >= str(week_start)]["payout"].sum()), 2)
+    mtd_total = round(float(daily[daily["date"] >= str(month_start)]["payout"].sum()), 2)
+
+    # WoW: current WTD vs same days last week
+    days_so_far     = (today - week_start).days + 1
+    lw_start        = week_start - timedelta(weeks=1)
+    lw_same_end     = lw_start + timedelta(days=days_so_far - 1)
+    lw_same_total   = round(float(
+        daily[(daily["date"] >= str(lw_start)) & (daily["date"] <= str(lw_same_end))]["payout"].sum()
+    ), 2)
+    wow_pct = round((wtd_total - lw_same_total) / lw_same_total * 100, 1) if lw_same_total else None
+
+    # Last full week (Mon–Sun) vs last-to-last full week (Mon–Sun)
+    lfw_end         = week_start - timedelta(days=1)          # last Sunday
+    lfw_start       = lfw_end - timedelta(days=6)             # last Monday
+    lfw_total       = round(float(
+        daily[(daily["date"] >= str(lfw_start)) & (daily["date"] <= str(lfw_end))]["payout"].sum()
+    ), 2)
+    lltw_end        = lfw_start - timedelta(days=1)
+    lltw_start      = lltw_end - timedelta(days=6)
+    lltw_total      = round(float(
+        daily[(daily["date"] >= str(lltw_start)) & (daily["date"] <= str(lltw_end))]["payout"].sum()
+    ), 2)
+    lw_vs_llw_pct   = round((lfw_total - lltw_total) / lltw_total * 100, 1) if lltw_total else None
+
+    result = {
+        "kpis": {
+            "wtd":  {
+                "total": wtd_total, "week_start": str(week_start),
+                "wow_pct": wow_pct, "lw_same_total": lw_same_total,
+                "lfw_total": lfw_total, "lfw_start": str(lfw_start), "lfw_end": str(lfw_end),
+                "lltw_total": lltw_total, "lw_vs_llw_pct": lw_vs_llw_pct,
+            },
+            "mtd":  {"total": mtd_total, "month_start": str(month_start)},
+        },
+        "daily":   daily.to_dict(orient="records"),
+        "weekly":  weekly.to_dict(orient="records"),
+        "monthly": monthly.to_dict(orient="records"),
+    }
+    _save_json("monitor_data.json", result)
+    print(f"[compute] Monitor data complete — {len(daily)} daily rows, {len(weekly)} weekly rows, {len(monthly)} monthly rows")
     return result

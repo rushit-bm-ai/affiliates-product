@@ -117,6 +117,15 @@ def main():
             print(f"[compute] WARNING: {err}")
             health["steps"]["invoice_vs_cash_live"] = "FAILED"
             health["errors"].append(err)
+
+        try:
+            mon = compute.compute_monitor()
+            health["steps"]["monitor"] = f"{len(mon['daily'])} daily rows"
+        except Exception as e:
+            err = f"Monitor compute failed: {e}"
+            print(f"[compute] WARNING: {err}")
+            health["steps"]["monitor"] = "FAILED"
+            health["errors"].append(err)
         print()
 
         # Step 3: Generate dashboard

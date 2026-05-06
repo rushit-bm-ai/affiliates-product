@@ -23,9 +23,22 @@ QUERIES = {
     "reports_by_payout_cycle": {
         "sql_file": os.path.join(QUERIES_DIR, "reports_by_payout_cycle.sql"),
         "file": os.path.join(INPUT_DIR, "reports_by_payout_cycle.csv"),
-        "expected_columns": [
-            "invoice_month", "partner", "cycle", "reports_revenue",
-        ],
+        "expected_columns": ["invoice_month", "partner", "cycle", "reports_revenue"],
+    },
+    "daily_by_partner": {
+        "sql_file": os.path.join(QUERIES_DIR, "daily_by_partner.sql"),
+        "file": os.path.join(INPUT_DIR, "daily_by_partner.csv"),
+        "expected_columns": ["date", "partner", "payout"],
+    },
+    "weekly_by_partner": {
+        "sql_file": os.path.join(QUERIES_DIR, "weekly_by_partner.sql"),
+        "file": os.path.join(INPUT_DIR, "weekly_by_partner.csv"),
+        "expected_columns": ["week_start", "partner", "payout"],
+    },
+    "monthly_by_partner": {
+        "sql_file": os.path.join(QUERIES_DIR, "monthly_by_partner.sql"),
+        "file": os.path.join(INPUT_DIR, "monthly_by_partner.csv"),
+        "expected_columns": ["month", "partner", "payout"],
     },
 }
 
@@ -38,6 +51,10 @@ GOOGLE_SHEET_DATA_START = 11
 
 # ── Slack ─────────────────────────────────────────────────────────────────────
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+
+# ── QMP Exchange (AmONE invoice portal) ───────────────────────────────────────
+QMP_USERNAME = os.getenv("QMP_USERNAME")
+QMP_PASSWORD = os.getenv("QMP_PASSWORD")
 
 # ── Partners ──────────────────────────────────────────────────────────────────
 EXPECTED_PARTNERS = ["moneylion", "amone", "kashkick", "freecash", "brigit", "supermoney"]

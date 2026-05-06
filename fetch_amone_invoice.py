@@ -3,21 +3,27 @@
 import os
 from playwright.sync_api import sync_playwright
 
+import config
+
 
 def main():
+    qmp_username = config.QMP_USERNAME
+    qmp_password = config.QMP_PASSWORD
+    if not qmp_username or not qmp_password:
+        raise RuntimeError("QMP_USERNAME and QMP_PASSWORD must be set in .env")
+
     os.makedirs("/home/ubuntu/recon-dashboard/screenshots", exist_ok=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        # Step 1: Login
         print("[qmp] Loading login page...")
         page.goto("https://exchange.qmp.ai/", timeout=30000)
         page.wait_for_load_state("networkidle")
 
-        page.locator('input[name="username"]').fill("rushit.virani@brightmoney.co")
-        page.locator('input[name="password"]').fill("Bright@2025")
+        page.locator('input[name="username"]').fill(qmp_username)
+        page.locator('input[name="password"]').fill(qmp_password)
 
         page.locator('button:has-text("Login"), button[type="submit"]').first.click()
         print("[qmp] Login submitted...")
