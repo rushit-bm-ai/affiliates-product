@@ -274,6 +274,10 @@ html.dark .sql-block { background:#0a0f1e; }
 #recon-tab2:checked ~ .sub-nav-bar label[for="recon-tab2"] { color:var(--blue); border-bottom-color:var(--blue); }
 #recon-tab1:checked ~ .sub-panel.rp1,
 #recon-tab2:checked ~ .sub-panel.rp2 { display:block; }
+#mon-tab1:checked ~ .sub-nav-bar label[for="mon-tab1"],
+#mon-tab2:checked ~ .sub-nav-bar label[for="mon-tab2"] { color:var(--blue); border-bottom-color:var(--blue); }
+#mon-tab1:checked ~ .sub-panel.mp1,
+#mon-tab2:checked ~ .sub-panel.mp2 { display:block; }
 .sub-nav-bar { display:flex; padding:0 36px; gap:0; background:var(--card); border-bottom:2px solid var(--border); }
 .sub-nav-bar label { cursor:pointer; padding:10px 22px; font-size:12px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:.15s; }
 .sub-nav-bar label:hover { color:var(--text); }
@@ -593,7 +597,13 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
 
   <!-- ══ TAB 2 — Monitor ══ -->
   <div class="tab-panel p2">
-
+  <input type="radio" id="mon-tab1" name="mon-tabs" checked>
+  <input type="radio" id="mon-tab2" name="mon-tabs">
+  <div class="sub-nav-bar">
+    <label for="mon-tab1"><span class="tab-dot dot-grey"></span>Payouts</label>
+    <label for="mon-tab2"><span class="tab-dot dot-blue"></span>Enrolls</label>
+  </div>
+  <div class="sub-panel mp1">
     <!-- Partner filter -->
     <div class="filter-bar" id="mon-filter-bar">
       <label>Partner:</label>
@@ -627,6 +637,47 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <div class="chart-card" id="mon-mom-chart" style="padding:16px"></div>
       <div class="tbl-wrap" style="margin-top:16px"><table id="mon-mom-tbl"></table></div>
     </div>
+
+  </div><!-- /mp1 Payouts -->
+
+  <div class="sub-panel mp2" style="padding:28px 36px">
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Monthly Enrollments by Partner <span style="font-size:12px;font-weight:400;color:var(--muted)">(last 13 months)</span></h2>
+      <div class="chart-card" id="enr-chart-monthly" style="padding:16px"></div>
+    </div>
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Payout by Enroll Month &amp; Cohort Bucket <span style="font-size:12px;font-weight:400;color:var(--muted)">(last 13 months)</span></h2>
+      <div class="chart-card" id="enr-chart-cohort" style="padding:16px"></div>
+      <div class="tbl-wrap" style="margin-top:16px"><table id="enr-tbl-cohort"></table></div>
+    </div>
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">3</span> Enrollments by Imp Source <span style="font-size:12px;font-weight:400;color:var(--muted)">(last 13 months · top 8)</span></h2>
+      <div class="chart-card" id="enr-chart-imp" style="padding:16px"></div>
+      <div class="tbl-wrap" style="margin-top:16px"><table id="enr-tbl-imp"></table></div>
+    </div>
+    <div class="section">
+      <h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">4</span> Enrolls Rollup <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">last 30 days · enroll date × partner × imp_source × payout cohort</span></h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+        <div style="display:flex;align-items:center;gap:6px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Partner:</label><select id="enr-filter-partner" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit"><option value="">All</option></select></div>
+        <div style="display:flex;align-items:center;gap:6px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Cohort:</label><select id="enr-filter-cohort" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit"><option value="">All</option></select></div>
+        <div style="display:flex;align-items:center;gap:6px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Imp Source:</label><select id="enr-filter-imp" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit"><option value="">All</option></select></div>
+        <span id="enr-row-count" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+      </div>
+      <div class="tbl-wrap"><table id="enr-table">
+        <thead><tr>
+          <th data-col="enroll_date" style="cursor:pointer">Enroll Date ↕</th>
+          <th data-col="partner" style="cursor:pointer">Partner ↕</th>
+          <th data-col="imp_source" style="cursor:pointer">Imp Source ↕</th>
+          <th data-col="payout_cohort_bucket" style="cursor:pointer">Cohort ↕</th>
+          <th data-col="enrolled_users" style="cursor:pointer;text-align:right">Enrolled Users ↕</th>
+          <th data-col="total_leads" style="cursor:pointer;text-align:right">Leads ↕</th>
+          <th data-col="total_payout" style="cursor:pointer;text-align:right">Total Payout ↕</th>
+          <th data-col="avg_payout" style="cursor:pointer;text-align:right">Avg Payout ↕</th>
+        </tr></thead>
+        <tbody id="enr-tbody"></tbody>
+      </table></div>
+    </div>
+  </div><!-- /mp2 Enrolls -->
 
   </div><!-- /p2 Monitor -->
 
@@ -1217,6 +1268,151 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+/* ── Enrolls tab ── */
+(function() {
+  var _enr = {{ enroll_data_json }};
+  var ENR         = _enr.raw     || [];
+  var ENR_MONTHLY = _enr.monthly || [];
+  var ENR_COHORT  = _enr.cohort  || [];
+  var ENR_IMP     = _enr.imp     || [];
+  var PAL = ['#3b82f6','#8b5cf6','#0d9488','#f97316','#e11d48','#22c55e','#f59e0b','#6366f1','#ec4899','#84cc16','#06b6d4','#a78bfa'];
+
+  var enrSort    = {col:'enroll_date', asc:false};
+  var enrFilters = {partner:'', cohort:'', imp:''};
+
+  function uniq(data, key) {
+    var seen = {}, out = [];
+    data.forEach(function(r){ if(r[key] && !seen[r[key]]){ seen[r[key]]=1; out.push(r[key]); } });
+    return out.sort();
+  }
+
+  function last13(data, key) {
+    var months = uniq(data, key);
+    var cutoff = months.length > 13 ? months[months.length - 13] : (months[0] || '');
+    return data.filter(function(r){ return r[key] >= cutoff; });
+  }
+
+  function fmt$(n){ return n==null?'':'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtN(n){ return n==null?'':n.toLocaleString('en-US'); }
+
+  /* ── Raw table ── */
+  function populateFilter(id, key) {
+    var sel = document.getElementById(id); if (!sel) return;
+    var seen = {}, vals = [];
+    ENR.forEach(function(r){ if(r[key] && !seen[r[key]]){ seen[r[key]]=1; vals.push(r[key]); } });
+    vals.sort().forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    sel.addEventListener('change', function() {
+      enrFilters[key==='partner'?'partner':key==='payout_cohort_bucket'?'cohort':'imp'] = this.value;
+      renderEnrTable();
+    });
+  }
+
+  function renderEnrTable() {
+    var rows = ENR.filter(function(r){
+      return (!enrFilters.partner||r.partner===enrFilters.partner)
+          && (!enrFilters.cohort||r.payout_cohort_bucket===enrFilters.cohort)
+          && (!enrFilters.imp||r.imp_source===enrFilters.imp);
+    });
+    rows.sort(function(a,b){
+      var av=a[enrSort.col]||'', bv=b[enrSort.col]||'';
+      return enrSort.asc?(av>bv?1:av<bv?-1:0):(av<bv?1:av>bv?-1:0);
+    });
+    var tbody = document.getElementById('enr-tbody'); if (!tbody) return;
+    tbody.innerHTML = rows.map(function(r){
+      return '<tr><td>'+(r.enroll_date||'')+'</td><td>'+(r.partner||'')+'</td><td>'+(r.imp_source||'')+'</td><td>'+(r.payout_cohort_bucket||'')+'</td>'
+        +'<td style="text-align:right">'+fmtN(r.enrolled_users)+'</td><td style="text-align:right">'+fmtN(r.total_leads)+'</td>'
+        +'<td style="text-align:right">'+fmt$(r.total_payout)+'</td><td style="text-align:right">'+fmt$(r.avg_payout)+'</td></tr>';
+    }).join('');
+    var rc=document.getElementById('enr-row-count'); if(rc) rc.textContent=rows.length+' rows';
+  }
+
+  /* ── Charts + pivot tables ── */
+  function baseLayout(dark) {
+    var bg=dark?'#1e1e2e':'#ffffff', fc=dark?'#e2e8f0':'#1a1a2e', gc=dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
+    return {paper_bgcolor:bg,plot_bgcolor:bg,height:320,font:{family:'Inter,system-ui,sans-serif',size:11,color:fc},
+      margin:{t:36,r:16,b:52,l:64},legend:{orientation:'h',y:-0.2,font:{size:10}},
+      xaxis:{gridcolor:gc,tickfont:{size:10,color:fc}},yaxis:{gridcolor:gc,tickfont:{size:10,color:fc},zeroline:false}};
+  }
+  function titleFont(dark){ return {size:13,color:dark?'#e2e8f0':'#1a1a2e',family:'Inter,system-ui,sans-serif'}; }
+  function isDark(){ return document.documentElement.classList.contains('dark'); }
+
+  function buildEnrCharts() {
+    if (!window.Plotly) return;
+    var dark = isDark();
+
+    /* Chart 1 */
+    var d1=last13(ENR_MONTHLY,'enroll_month'), m1=uniq(d1,'enroll_month'), p1=uniq(d1,'partner');
+    Plotly.newPlot('enr-chart-monthly', p1.map(function(p,i){
+      var bm={}; d1.filter(function(r){return r.partner===p;}).forEach(function(r){bm[r.enroll_month]=r.enrolled_users;});
+      return {x:m1,y:m1.map(function(m){return bm[m]||0;}),name:p,type:'scatter',mode:'lines+markers',
+        line:{color:PAL[i%PAL.length],width:2},marker:{size:5,color:PAL[i%PAL.length]}};
+    }), Object.assign({},baseLayout(dark),{title:{text:'Monthly Enrollments by Partner',font:titleFont(dark),x:0.02},
+      yaxis:Object.assign({},baseLayout(dark).yaxis,{title:'Enrolled Users'})}),{responsive:true,displayModeBar:false});
+
+    /* Chart 2 + Table */
+    var d2=last13(ENR_COHORT,'enroll_month'), m2=uniq(d2,'enroll_month'), b2=uniq(d2,'payout_cohort_bucket');
+    Plotly.newPlot('enr-chart-cohort', b2.map(function(b,i){
+      var bm={}; d2.filter(function(r){return r.payout_cohort_bucket===b;}).forEach(function(r){bm[r.enroll_month]=r.total_payout;});
+      return {x:m2,y:m2.map(function(m){return bm[m]||0;}),name:b,type:'bar',marker:{color:PAL[i%PAL.length]}};
+    }), Object.assign({},baseLayout(dark),{barmode:'stack',title:{text:'Payout by Enroll Cohort',font:titleFont(dark),x:0.02},
+      yaxis:Object.assign({},baseLayout(dark).yaxis,{title:'Total Payout ($)',tickformat:'$,.0f'})}),{responsive:true,displayModeBar:false});
+    (function(){
+      var tbl=document.getElementById('enr-tbl-cohort'); if(!tbl) return;
+      var lk={}, cT={}, gT=0;
+      d2.forEach(function(r){lk[r.enroll_month+'/'+r.payout_cohort_bucket]=r.total_payout||0;});
+      b2.forEach(function(b){cT[b]=0;});
+      var rows=m2.map(function(m){
+        var rT=0, cells=b2.map(function(b){var v=lk[m+'/'+b]||0;rT+=v;cT[b]+=v;gT+=v;return v;});
+        return {month:m,cells:cells,rT:rT};
+      });
+      tbl.innerHTML='<thead><tr><th>Enroll Month</th>'+b2.map(function(b){return '<th style="text-align:right">'+b+'</th>';}).join('')+'<th style="text-align:right;font-weight:700">Total</th></tr></thead>'
+        +'<tbody>'+rows.map(function(r){return '<tr><td>'+r.month+'</td>'+r.cells.map(function(v){return '<td style="text-align:right">'+(v?fmt$(v):'—')+'</td>';}).join('')+'<td style="text-align:right;font-weight:700">'+fmt$(r.rT)+'</td></tr>';}).join('')
+        +'<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Total</td>'+b2.map(function(b){return '<td style="text-align:right">'+fmt$(cT[b])+'</td>';}).join('')+'<td style="text-align:right">'+fmt$(gT)+'</td></tr></tbody>';
+    })();
+
+    /* Chart 3 + Table */
+    var d3=last13(ENR_IMP,'enroll_month');
+    var totals={}; d3.forEach(function(r){totals[r.imp_source]=(totals[r.imp_source]||0)+r.enrolled_users;});
+    var top8=Object.keys(totals).sort(function(a,b){return totals[b]-totals[a];}).slice(0,8);
+    var m3=uniq(d3,'enroll_month');
+    Plotly.newPlot('enr-chart-imp', top8.map(function(src,i){
+      var bm={}; d3.filter(function(r){return r.imp_source===src;}).forEach(function(r){bm[r.enroll_month]=r.enrolled_users;});
+      return {x:m3,y:m3.map(function(m){return bm[m]||0;}),name:src,type:'bar',marker:{color:PAL[i%PAL.length]}};
+    }), Object.assign({},baseLayout(dark),{barmode:'stack',title:{text:'Enrollments by Imp Source (top 8)',font:titleFont(dark),x:0.02},
+      yaxis:Object.assign({},baseLayout(dark).yaxis,{title:'Enrolled Users'})}),{responsive:true,displayModeBar:false});
+    (function(){
+      var tbl=document.getElementById('enr-tbl-imp'); if(!tbl) return;
+      var lk={}, cT={}, gT=0;
+      d3.forEach(function(r){lk[r.enroll_month+'/'+r.imp_source]=r.enrolled_users||0;});
+      top8.forEach(function(s){cT[s]=0;});
+      var rows=m3.map(function(m){
+        var rT=0, cells=top8.map(function(s){var v=lk[m+'/'+s]||0;rT+=v;cT[s]+=v;gT+=v;return v;});
+        return {month:m,cells:cells,rT:rT};
+      });
+      tbl.innerHTML='<thead><tr><th>Enroll Month</th>'+top8.map(function(s){return '<th style="text-align:right">'+s+'</th>';}).join('')+'<th style="text-align:right;font-weight:700">Total</th></tr></thead>'
+        +'<tbody>'+rows.map(function(r){return '<tr><td>'+r.month+'</td>'+r.cells.map(function(v){return '<td style="text-align:right">'+(v||'—')+'</td>';}).join('')+'<td style="text-align:right;font-weight:700">'+fmtN(r.rT)+'</td></tr>';}).join('')
+        +'<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Total</td>'+top8.map(function(s){return '<td style="text-align:right">'+fmtN(cT[s])+'</td>';}).join('')+'<td style="text-align:right">'+fmtN(gT)+'</td></tr></tbody>';
+    })();
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    populateFilter('enr-filter-partner','partner');
+    populateFilter('enr-filter-cohort','payout_cohort_bucket');
+    populateFilter('enr-filter-imp','imp_source');
+    document.querySelectorAll('#enr-table th[data-col]').forEach(function(th){
+      th.addEventListener('click', function(){
+        var col=this.getAttribute('data-col');
+        if(enrSort.col===col){enrSort.asc=!enrSort.asc;}else{enrSort.col=col;enrSort.asc=col==='enroll_date'?false:true;}
+        renderEnrTable();
+      });
+    });
+    renderEnrTable();
+    buildEnrCharts();
+  });
+  var dmBtn=document.querySelector('.dark-toggle');
+  if(dmBtn) dmBtn.addEventListener('click',function(){setTimeout(buildEnrCharts,50);});
+})();
+
 // ── Refresh button ────────────────────────────────────────────────────────────
 (function() {
   var API = window.location.protocol + '//' + window.location.hostname + ':8765';
@@ -1311,6 +1507,7 @@ def main(close_month=None):
     l1 = load_json("l1_results.json")
     l3 = load_json("l3_live_results.json")
     monitor = load_json("monitor_data.json")
+    enroll = load_json("enroll_data.json") or {"raw": [], "monthly": [], "cohort": [], "imp": []}
 
     # Health log
     health_log = []
@@ -1371,6 +1568,7 @@ def main(close_month=None):
         "email_log": to_dot(email_log),
         "chart_data_json": json.dumps(l1["monthly_detail"] if l1 else []),
         "monitor_data_json": json.dumps(monitor if monitor else {"kpis": {}, "daily": [], "weekly": [], "monthly": []}),
+        "enroll_data_json":  json.dumps(enroll),
         "sql_reports": read_sql("reports_by_payout_cycle.sql"),
         "sql_daily":   read_sql("daily_by_partner.sql"),
         "sql_weekly":  read_sql("weekly_by_partner.sql"),

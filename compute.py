@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 
 import pandas as pd
+import requests
 
 import config
 
@@ -526,4 +527,75 @@ def compute_monitor():
     }
     _save_json("monitor_data.json", result)
     print(f"[compute] Monitor data complete — {len(daily)} daily rows, {len(weekly)} weekly rows, {len(monthly)} monthly rows")
+    return result
+
+
+def compute_enrolls():
+    """Fetch enrolls rollup data from Metabase and save to enroll_data.json."""
+    resp = requests.post(
+        f"{config.METABASE_HOST}/api/session",
+        json={"username": config.METABASE_USERNAME, "password": config.METABASE_PASSWORD},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    token = resp.json()["id"]
+
+    def run_q(sql):
+        r = requests.post(
+            f"{config.METABASE_HOST}/api/dataset",
+            headers={"X-Metabase-Session": token, "Content-Type": "application/json"},
+            json={"database": config.METABASE_DATABASE_ID, "type": "native", "native": {"query": sql}},
+            timeout=300,
+        )
+        r.raise_for_status()
+        data = r.json()
+        if data.get("error"):
+            raise RuntimeError(data["error"])
+        cols = [c["name"] for c in data["data"]["cols"]]
+        result = []
+        for row in data["data"]["rows"]:
+            obj = {}
+            for c, v in zip(cols, row):
+                if isinstance(v, str) and v.endswith("T00:00:00Z"):
+                    v = v[:10]
+                obj[c] = v
+            result.append(obj)
+        return result
+
+    PC = ("case when partner='AmoneAPI' then 'AmONE' when partner='PBrigit' then 'Brigit' "
+          "when partner='Pkashkick' then 'Kashkick' when partner='PSupermoney' then 'SuperMoney' "
+          "when partner='PFreecash' then 'Freecash' else partner end")
+    BASE   = "iceberg_db.affiliate__revenue_uid_enriched_v0"
+    FILTER = "first_enrolled_on is not null and enrol_status='Enrol'"
+
+    print("[compute] Enrolls data")
+    raw = run_q(
+        f"select date(first_enrolled_on) as enroll_date, {PC} as partner, "
+        f"coalesce(imp_source,'(none)') as imp_source, payout_cohort_bucket, "
+        f"count(distinct bright_uid) as enrolled_users, count(distinct api_lead_id) as total_leads, "
+        f"round(sum(payout),2) as total_payout, round(avg(payout),2) as avg_payout "
+        f"from {BASE} where {FILTER} and first_enrolled_on >= current_date - interval '30' day "
+        f"group by 1,2,3,4 order by 1 desc,2,3,4"
+    )
+    monthly = run_q(
+        f"select date_format(date_trunc('month',cast(first_enrolled_on as timestamp)),'%Y-%m') as enroll_month, "
+        f"{PC} as partner, count(distinct bright_uid) as enrolled_users "
+        f"from {BASE} where {FILTER} group by 1,2 order by 1,2"
+    )
+    cohort = run_q(
+        f"select date_format(date_trunc('month',cast(first_enrolled_on as timestamp)),'%Y-%m') as enroll_month, "
+        f"payout_cohort_bucket, count(distinct bright_uid) as enrolled_users, "
+        f"round(sum(coalesce(payout,0)),2) as total_payout "
+        f"from {BASE} where {FILTER} group by 1,2 order by 1,2"
+    )
+    imp = run_q(
+        f"select date_format(date_trunc('month',cast(first_enrolled_on as timestamp)),'%Y-%m') as enroll_month, "
+        f"coalesce(imp_source,'(none)') as imp_source, count(distinct bright_uid) as enrolled_users "
+        f"from {BASE} where {FILTER} group by 1,2 order by 1,2"
+    )
+
+    result = {"raw": raw, "monthly": monthly, "cohort": cohort, "imp": imp}
+    _save_json("enroll_data.json", result)
+    print(f"[compute] Enrolls complete — {len(raw)} raw, {len(monthly)} monthly, "
+          f"{len(cohort)} cohort, {len(imp)} imp rows")
     return result

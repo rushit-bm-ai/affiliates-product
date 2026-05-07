@@ -132,6 +132,15 @@ def main():
             print(f"[compute] WARNING: {err}")
             health["steps"]["monitor"] = "FAILED"
             health["errors"].append(err)
+
+        try:
+            enr = compute.compute_enrolls()
+            health["steps"]["enrolls"] = f"{len(enr['raw'])} raw rows"
+        except Exception as e:
+            err = f"Enrolls compute failed: {e}"
+            print(f"[compute] WARNING: {err}")
+            health["steps"]["enrolls"] = "FAILED"
+            health["errors"].append(err)
         print()
 
         # Step 3: Generate dashboard
