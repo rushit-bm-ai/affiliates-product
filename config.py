@@ -104,7 +104,14 @@ SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_SENDER = "automation_ops@brightmoney.co"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-EMAIL_TO = ["rushit.virani@brightmoney.co"]
+EMAIL_TO = [
+    "petko@brightmoney.co",
+    "avi@brightmoney.co",
+    "vedant.baghel@brightmoney.co",
+    "rushit.virani@brightmoney.co",
+    "praveen.b@brightmoney.co",
+    "madhu@brightmoney.co",
+]
 EMAIL_SUBJECT_TEMPLATE = "Affiliates Recon Report — Week of {date}"
 EMAIL_LOG_FILE = os.path.join(LOGS_DIR, "email_log.json")
 EMAIL_LOG_MAX_ENTRIES = 90
