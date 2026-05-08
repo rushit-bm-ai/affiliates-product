@@ -18,7 +18,7 @@
     /* ── Header ── */
     .header {
       background: linear-gradient(155deg, #0e1e14 0%, #0f4625 60%, #0a3520 100%);
-      padding: 48px 40px 40px;
+      padding: 48px 40px 0;
       text-align: center;
     }
     .header-eyebrow {
@@ -40,6 +40,32 @@
       font-size: 13px;
       color: #6bde9b;
       margin-top: 8px;
+      margin-bottom: 28px;
+    }
+
+    /* ── Primary Tabs ── */
+    .primary-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 40px;
+    }
+    .primary-tab {
+      padding: 10px 24px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #6bde9b;
+      cursor: pointer;
+      border-radius: 10px 10px 0 0;
+      border: none;
+      background: transparent;
+      letter-spacing: 0.2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .primary-tab:hover { background: rgba(255,255,255,0.08); }
+    .primary-tab.active {
+      background: #eef2ee;
+      color: #0e1e14;
     }
 
     /* ── Body ── */
@@ -47,6 +73,31 @@
       max-width: 780px;
       margin: 0 auto;
       padding: 40px 24px 60px;
+    }
+
+    /* ── Sub Tabs ── */
+    .sub-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .sub-tab {
+      padding: 7px 18px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #5c7a62;
+      cursor: pointer;
+      border-radius: 20px;
+      border: 1.5px solid #d1e8d8;
+      background: #fff;
+      letter-spacing: 0.2px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .sub-tab:hover { border-color: #17c95f; color: #0f4625; }
+    .sub-tab.active {
+      background: #0f4625;
+      color: #fff;
+      border-color: #0f4625;
     }
 
     .section-label {
@@ -140,6 +191,10 @@
     .card-cta:hover { opacity: 0.85; }
     .card-cta .arrow { font-size: 14px; }
 
+    /* ── Tab Panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
     /* ── Footer ── */
     .footer {
       text-align: center;
@@ -155,29 +210,79 @@
     <div class="header-eyebrow">Bright Money &nbsp;·&nbsp; Internal Tools</div>
     <h1>Dashboards</h1>
     <div class="header-sub">All operational dashboards in one place</div>
+
+    <div class="primary-tabs">
+      <button class="primary-tab active" onclick="switchPrimaryTab('recon', this)">Recon</button>
+      <button class="primary-tab" onclick="switchPrimaryTab('experiments', this)">Experiments</button>
+    </div>
   </div>
 
   <div class="body">
 
-    <a class="card" href="/affiliates-recon-dashboard/">
-      <div class="card-icon">📊</div>
-      <div class="card-body">
-        <div class="card-title">Affiliates Reconciliation</div>
-        <div class="card-desc">Monthly payout vs invoice vs cash reconciliation across all affiliate partners. Reports → Invoice → Cash, variance tracking, pending collections.</div>
-        <div class="card-tags">
-          <span class="tag">Affiliates</span>
-          <span class="tag">Finance</span>
-          <span class="tag">Daily</span>
+    <!-- Recon Tab -->
+    <div id="tab-recon" class="tab-panel active">
+      <a class="card" href="/affiliates-recon-dashboard/">
+        <div class="card-icon">📊</div>
+        <div class="card-body">
+          <div class="card-title">Affiliates Reconciliation</div>
+          <div class="card-desc">Monthly payout vs invoice vs cash reconciliation across all affiliate partners. Reports → Invoice → Cash, variance tracking, pending collections.</div>
+          <div class="card-tags">
+            <span class="tag">Affiliates</span>
+            <span class="tag">Finance</span>
+            <span class="tag">Daily</span>
+          </div>
+        </div>
+        <span class="card-cta">Open <span class="arrow">&#8594;</span></span>
+      </a>
+    </div>
+
+    <!-- Experiments Tab -->
+    <div id="tab-experiments" class="tab-panel">
+
+      <div class="sub-tabs">
+        <button class="sub-tab active" onclick="switchSubTab('c1b', this)">C1B</button>
+      </div>
+
+      <!-- C1B Sub-tab -->
+      <div id="subtab-c1b" class="tab-panel active">
+        <div class="section-label">C1B Experiments</div>
+        <div class="card" style="cursor:default;">
+          <div class="card-icon">🧪</div>
+          <div class="card-body">
+            <div class="card-title">C1B Analytics</div>
+            <div class="card-desc">Experiment tracking and analysis for C1B. Cohort performance, funnel metrics, and variant comparisons.</div>
+            <div class="card-tags">
+              <span class="tag">C1B</span>
+              <span class="tag">Experiments</span>
+              <span class="tag">Analytics</span>
+            </div>
+          </div>
         </div>
       </div>
-      <span class="card-cta">Open <span class="arrow">&#8594;</span></span>
-    </a>
+
+    </div>
 
   </div>
 
   <div class="footer">
     Bright Money &nbsp;·&nbsp; Internal Tooling &nbsp;·&nbsp; Requires VPN
   </div>
+
+  <script>
+    function switchPrimaryTab(name, el) {
+      document.querySelectorAll('.primary-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('#tab-recon, #tab-experiments').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    function switchSubTab(name, el) {
+      el.closest('.tab-panel').querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      el.closest('.tab-panel').querySelectorAll('[id^="subtab-"]').forEach(p => p.classList.remove('active'));
+      document.getElementById('subtab-' + name).classList.add('active');
+    }
+  </script>
 
 </body>
 </html>
