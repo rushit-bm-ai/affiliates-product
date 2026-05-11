@@ -115,21 +115,18 @@ body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
 #tab0:checked ~ .nav-bar label[for="tab0"],
 #tab1:checked ~ .nav-bar label[for="tab1"],
-#tab2:checked ~ .nav-bar label[for="tab2"],
-#tab3:checked ~ .nav-bar label[for="tab3"] {
+#tab2:checked ~ .nav-bar label[for="tab2"] {
   background:#0f172a; color:#fff; border-color:#0f172a; box-shadow:0 2px 8px rgba(15,23,42,.2); }
 html.dark #tab0:checked ~ .nav-bar label[for="tab0"],
 html.dark #tab1:checked ~ .nav-bar label[for="tab1"],
-html.dark #tab2:checked ~ .nav-bar label[for="tab2"],
-html.dark #tab3:checked ~ .nav-bar label[for="tab3"] {
+html.dark #tab2:checked ~ .nav-bar label[for="tab2"] {
   background:#3b82f6; color:#fff; border-color:#3b82f6; }
 
 /* ── Tab panels ── */
 .tab-panel { display:none; padding:28px 36px; }
 #tab0:checked ~ .tab-panel.p0,
 #tab1:checked ~ .tab-panel.p1,
-#tab2:checked ~ .tab-panel.p2,
-#tab3:checked ~ .tab-panel.p3 { display:block; }
+#tab2:checked ~ .tab-panel.p2 { display:block; }
 /* Monitor partner filter bar */
 #mon-filter-bar { margin-bottom:20px; }
 .mon-cb-wrap { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
@@ -271,9 +268,11 @@ html.dark .sql-block { background:#0a0f1e; }
 .sub-tab-wrapper input[type="radio"] { display:none; }
 .sub-panel { display:none; }
 #recon-tab1:checked ~ .sub-nav-bar label[for="recon-tab1"],
-#recon-tab2:checked ~ .sub-nav-bar label[for="recon-tab2"] { color:var(--blue); border-bottom-color:var(--blue); }
+#recon-tab2:checked ~ .sub-nav-bar label[for="recon-tab2"],
+#recon-tab3:checked ~ .sub-nav-bar label[for="recon-tab3"] { color:var(--blue); border-bottom-color:var(--blue); }
 #recon-tab1:checked ~ .sub-panel.rp1,
-#recon-tab2:checked ~ .sub-panel.rp2 { display:block; }
+#recon-tab2:checked ~ .sub-panel.rp2,
+#recon-tab3:checked ~ .sub-panel.rp3 { display:block; }
 #mon-tab1:checked ~ .sub-nav-bar label[for="mon-tab1"],
 #mon-tab2:checked ~ .sub-nav-bar label[for="mon-tab2"] { color:var(--blue); border-bottom-color:var(--blue); }
 #mon-tab1:checked ~ .sub-panel.mp1,
@@ -303,7 +302,6 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <h1>Affiliates Analytics</h1>
     </div>
     <div class="header-actions">
-      <button class="refresh-btn" id="refreshBtn" onclick="triggerRefresh()">&#x21bb; Refresh</button>
       <button class="dark-toggle" onclick="toggleDark()">Dark Mode</button>
     </div>
   </div>
@@ -353,12 +351,10 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   <input type="radio" id="tab0" name="tabs" checked>
   <input type="radio" id="tab1" name="tabs">
   <input type="radio" id="tab2" name="tabs">
-  <input type="radio" id="tab3" name="tabs">
   <div class="nav-bar">
     <label for="tab0" class="nav-tab"><span class="tab-dot dot-grey"></span>About</label>
     <label for="tab1" class="nav-tab"><span class="tab-dot {% if l1 or l3 %}{% if (l1 and l1.overall_status == 'RED') or (l3 and l3.overall_status == 'RED') %}dot-red{% elif (l1 and l1.overall_status == 'AMBER') or (l3 and l3.overall_status == 'AMBER') %}dot-amber{% else %}dot-green{% endif %}{% else %}dot-grey{% endif %}"></span>Recon</label>
     <label for="tab2" class="nav-tab"><span class="tab-dot dot-grey"></span>Monitor</label>
-    <label for="tab3" class="nav-tab"><span class="tab-dot {% if health_log %}{% if health_log[-1].status == 'SUCCESS' %}dot-green{% elif health_log[-1].status == 'PARTIAL' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Health</label>
   </div>
 
   <!-- ══ TAB 0 — About ══ -->
@@ -372,7 +368,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
           <tr><td><strong>Recon</strong></td><td>Reports vs Invoice</td><td>Monthly partner payout amounts vs invoice amounts, delta $ and %, variance status and trend charts</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">reports_by_payout_cycle.sql</code></td><td>Daily 9 AM IST</td></tr>
           <tr><td><strong>Recon</strong></td><td>Cash Collections</td><td>Invoice amounts vs actual cash received from partners, yet-to-receive tracking, collection timeline</td><td><span class="tag tag-green">Google Sheet</span> <code style="font-size:10px">New R : finance</code></td><td>Daily 9 AM IST</td></tr>
           <tr><td><strong>Monitor</strong></td><td>—</td><td>Day-on-Day and Week-on-Week payout trends by sub-partner, heatmap, Month-on-Month bar chart and breakdown table</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">daily / weekly / monthly_by_partner.sql</code></td><td>Daily 9 AM IST</td></tr>
-          <tr><td><strong>Health</strong></td><td>—</td><td>Pipeline run history, step-level status, email log, cron schedule</td><td><span class="tag tag-teal">Local logs</span> <code style="font-size:10px">logs/health_log.json</code></td><td>Written each run</td></tr>
+          <tr><td><strong>Recon</strong></td><td>Health</td><td>Pipeline run history, step-level status, email log, cron schedule</td><td><span class="tag tag-teal">Local logs</span> <code style="font-size:10px">logs/health_log.json</code></td><td>Written each run</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -521,9 +517,16 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   <div class="tab-panel p1">
   <input type="radio" id="recon-tab1" name="recon-tabs" checked>
   <input type="radio" id="recon-tab2" name="recon-tabs">
-  <div class="sub-nav-bar">
-    <label for="recon-tab1"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Reports vs Invoice</label>
-    <label for="recon-tab2"><span class="tab-dot {% if l3 %}{% if l3.overall_status == 'GREEN' %}dot-green{% elif l3.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Cash Collections</label>
+  <input type="radio" id="recon-tab3" name="recon-tabs">
+  <div class="sub-nav-bar" style="justify-content:space-between;align-items:center;">
+    <div style="display:flex;">
+      <label for="recon-tab1"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Reports vs Invoice</label>
+      <label for="recon-tab2"><span class="tab-dot {% if l3 %}{% if l3.overall_status == 'GREEN' %}dot-green{% elif l3.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Cash Collections</label>
+      <label for="recon-tab3"><span class="tab-dot {% if health_log %}{% if health_log[-1].status == 'SUCCESS' %}dot-green{% elif health_log[-1].status == 'PARTIAL' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Health</label>
+    </div>
+    <div style="padding-right:16px;">
+      <button class="refresh-btn" id="refreshBtn" onclick="triggerRefresh()">&#x21bb; Refresh</button>
+    </div>
   </div>
   <div class="sub-panel rp1">
   {% if l1 %}
@@ -593,6 +596,68 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
 
   {% else %}<div class="section"><p style="color:var(--muted);">Google Sheet data not available. Ensure google_sa_key.json is in place.</p></div>{% endif %}
   </div><!-- /rp2 -->
+
+  <!-- Health sub-tab -->
+  <div class="sub-panel rp3">
+    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">1</span> Pipeline Health</h2>
+      {% if health_log %}
+      {% set last = health_log[-1] %}
+      {% set success_count = health_log|selectattr('status', 'equalto', 'SUCCESS')|list|length %}
+      {% set fail_count = health_log|selectattr('status', 'equalto', 'FAILED')|list|length %}
+      {% set partial_count = health_log|selectattr('status', 'equalto', 'PARTIAL')|list|length %}
+      <div class="health-grid">
+        <div class="health-card"><div class="val" style="color:var(--blue)">{{ health_log|length }}</div><div class="lbl">Total Runs</div></div>
+        <div class="health-card"><div class="val" style="color:var(--green)">{{ success_count }}</div><div class="lbl">Successful</div></div>
+        <div class="health-card"><div class="val" style="color:var(--red)">{{ fail_count }}</div><div class="lbl">Failed</div></div>
+        <div class="health-card"><div class="val" style="color:var(--amber)">{{ partial_count }}</div><div class="lbl">Partial</div></div>
+        <div class="health-card"><div class="val">{{ last.duration_seconds }}s</div><div class="lbl">Last Duration</div></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Last run: <strong>{{ last.timestamp_ist }} IST</strong> &mdash; <span class="badge {{ last.status }}">{{ last.status }}</span></p>
+      {% else %}
+      <p style="color:var(--muted);">No health data yet. Run the pipeline at least once.</p>
+      {% endif %}
+    </div>
+
+    {% if health_log %}
+    <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Run History (last {{ health_log|length }} runs)</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Timestamp (IST)</th><th>Close Month</th><th>Status</th><th>Data Pull</th><th>Validation</th><th>Reports vs Invoice</th><th>Invoice vs Cash</th><th>Dashboard</th><th class="num">Duration</th><th>Errors</th></tr></thead>
+        <tbody>{% for h in health_log|reverse %}<tr{% if h.status == 'FAILED' %} style="background:var(--red-bg)"{% endif %}>
+          <td>{{ h.timestamp_ist }} IST</td>
+          <td>{{ h.close_month }}</td>
+          <td><span class="badge {{ h.status }}">{{ h.status }}</span></td>
+          <td>{{ h.steps.data_pull if h.steps.data_pull is defined else '—' }}</td>
+          <td>{{ h.steps.validation if h.steps.validation is defined else '—' }}</td>
+          <td>{{ h.steps.reports_vs_invoice if h.steps.reports_vs_invoice is defined else '—' }}</td>
+          <td>{{ h.steps.invoice_vs_cash_live if h.steps.invoice_vs_cash_live is defined else '—' }}</td>
+          <td>{{ h.steps.dashboard_render if h.steps.dashboard_render is defined else '—' }}</td>
+          <td class="num">{{ h.duration_seconds }}s</td>
+          <td>{% if h.errors and h.errors|length > 0 %}<details><summary style="color:var(--red);cursor:pointer;font-size:12px">{{ h.errors|length }} error(s)</summary>{% for e in h.errors %}<pre style="background:var(--red-bg);color:var(--red-text);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:6px;">{{ e[:500] }}</pre>{% endfor %}</details>{% else %}<span style="color:var(--green)">&#10003;</span>{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    {% endif %}
+
+    <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">3</span> Email Report History</h2>
+      {% if email_log %}
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Timestamp (IST)</th><th>Status</th><th>Recipients</th><th class="num">Duration</th><th>Error</th></tr></thead>
+        <tbody>{% for e in email_log|reverse %}<tr{% if e.status == 'FAILED' %} style="background:var(--red-bg)"{% endif %}>
+          <td>{{ e.timestamp_ist }}</td>
+          <td><span class="badge {{ e.status }}">{{ e.status }}</span></td>
+          <td style="font-size:11px">{{ e.recipients|join(', ') if e.recipients else '—' }}</td>
+          <td class="num">{{ e.duration_seconds }}s</td>
+          <td>{% if e.error %}<details><summary style="color:var(--red);cursor:pointer;font-size:12px">View error</summary><pre style="background:var(--red-bg);color:var(--red-text);padding:8px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:6px;">{{ e.error[:500] }}</pre></details>{% else %}<span style="color:var(--green)">&#10003;</span>{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+      {% else %}<p style="color:var(--muted)">No email reports sent yet.</p>{% endif %}
+    </div>
+
+    <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">4</span> Refresh Schedule</h2>
+      <div class="note-box">Dashboard refreshes daily at <strong>9:00 AM IST</strong> (3:30 AM UTC) via cron job. Slack alerts are sent on failure.</div>
+    </div>
+  </div><!-- /rp3 Health -->
+
   </div><!-- /p1 Recon -->
 
   <!-- ══ TAB 2 — Monitor ══ -->
@@ -680,67 +745,6 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   </div><!-- /mp2 Enrolls -->
 
   </div><!-- /p2 Monitor -->
-
-  <!-- ══ TAB 3 — Health ══ -->
-  <div class="tab-panel p3">
-    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">1</span> Pipeline Health</h2>
-      {% if health_log %}
-      {% set last = health_log[-1] %}
-      {% set success_count = health_log|selectattr('status', 'equalto', 'SUCCESS')|list|length %}
-      {% set fail_count = health_log|selectattr('status', 'equalto', 'FAILED')|list|length %}
-      {% set partial_count = health_log|selectattr('status', 'equalto', 'PARTIAL')|list|length %}
-      <div class="health-grid">
-        <div class="health-card"><div class="val" style="color:var(--blue)">{{ health_log|length }}</div><div class="lbl">Total Runs</div></div>
-        <div class="health-card"><div class="val" style="color:var(--green)">{{ success_count }}</div><div class="lbl">Successful</div></div>
-        <div class="health-card"><div class="val" style="color:var(--red)">{{ fail_count }}</div><div class="lbl">Failed</div></div>
-        <div class="health-card"><div class="val" style="color:var(--amber)">{{ partial_count }}</div><div class="lbl">Partial</div></div>
-        <div class="health-card"><div class="val">{{ last.duration_seconds }}s</div><div class="lbl">Last Duration</div></div>
-      </div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Last run: <strong>{{ last.timestamp_ist }} IST</strong> &mdash; <span class="badge {{ last.status }}">{{ last.status }}</span></p>
-      {% else %}
-      <p style="color:var(--muted);">No health data yet. Run the pipeline at least once.</p>
-      {% endif %}
-    </div>
-
-    {% if health_log %}
-    <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Run History (last {{ health_log|length }} runs)</h2>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Timestamp (IST)</th><th>Close Month</th><th>Status</th><th>Data Pull</th><th>Validation</th><th>Reports vs Invoice</th><th>Invoice vs Cash</th><th>Dashboard</th><th class="num">Duration</th><th>Errors</th></tr></thead>
-        <tbody>{% for h in health_log|reverse %}<tr{% if h.status == 'FAILED' %} style="background:var(--red-bg)"{% endif %}>
-          <td>{{ h.timestamp_ist }} IST</td>
-          <td>{{ h.close_month }}</td>
-          <td><span class="badge {{ h.status }}">{{ h.status }}</span></td>
-          <td>{{ h.steps.data_pull if h.steps.data_pull is defined else '—' }}</td>
-          <td>{{ h.steps.validation if h.steps.validation is defined else '—' }}</td>
-          <td>{{ h.steps.reports_vs_invoice if h.steps.reports_vs_invoice is defined else '—' }}</td>
-          <td>{{ h.steps.invoice_vs_cash_live if h.steps.invoice_vs_cash_live is defined else '—' }}</td>
-          <td>{{ h.steps.dashboard_render if h.steps.dashboard_render is defined else '—' }}</td>
-          <td class="num">{{ h.duration_seconds }}s</td>
-          <td>{% if h.errors and h.errors|length > 0 %}<details><summary style="color:var(--red);cursor:pointer;font-size:12px">{{ h.errors|length }} error(s)</summary>{% for e in h.errors %}<pre style="background:var(--red-bg);color:var(--red-text);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:6px;">{{ e[:500] }}</pre>{% endfor %}</details>{% else %}<span style="color:var(--green)">&#10003;</span>{% endif %}</td>
-        </tr>{% endfor %}</tbody>
-      </table></div>
-    </div>
-    {% endif %}
-
-    <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">3</span> Email Report History</h2>
-      {% if email_log %}
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Timestamp (IST)</th><th>Status</th><th>Recipients</th><th class="num">Duration</th><th>Error</th></tr></thead>
-        <tbody>{% for e in email_log|reverse %}<tr{% if e.status == 'FAILED' %} style="background:var(--red-bg)"{% endif %}>
-          <td>{{ e.timestamp_ist }}</td>
-          <td><span class="badge {{ e.status }}">{{ e.status }}</span></td>
-          <td style="font-size:11px">{{ e.recipients|join(', ') if e.recipients else '—' }}</td>
-          <td class="num">{{ e.duration_seconds }}s</td>
-          <td>{% if e.error %}<details><summary style="color:var(--red);cursor:pointer;font-size:12px">View error</summary><pre style="background:var(--red-bg);color:var(--red-text);padding:8px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:6px;">{{ e.error[:500] }}</pre></details>{% else %}<span style="color:var(--green)">&#10003;</span>{% endif %}</td>
-        </tr>{% endfor %}</tbody>
-      </table></div>
-      {% else %}<p style="color:var(--muted)">No email reports sent yet.</p>{% endif %}
-    </div>
-
-    <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">4</span> Refresh Schedule</h2>
-      <div class="note-box">Dashboard refreshes daily at <strong>9:00 AM IST</strong> (3:30 AM UTC) via cron job. Slack alerts are sent on failure.</div>
-    </div>
-  </div><!-- /p3 Health -->
 
 </div><!-- /tab-wrapper -->
 </div><!-- /body-wrap -->
