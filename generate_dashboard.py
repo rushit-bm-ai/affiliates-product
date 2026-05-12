@@ -115,40 +115,25 @@ body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
 #tab0:checked ~ .nav-bar label[for="tab0"],
 #tab1:checked ~ .nav-bar label[for="tab1"],
-#tab2:checked ~ .nav-bar label[for="tab2"],
-#tab3:checked ~ .nav-bar label[for="tab3"] {
+#tab2:checked ~ .nav-bar label[for="tab2"] {
   background:#0f172a; color:#fff; border-color:#0f172a; box-shadow:0 2px 8px rgba(15,23,42,.2); }
 html.dark #tab0:checked ~ .nav-bar label[for="tab0"],
 html.dark #tab1:checked ~ .nav-bar label[for="tab1"],
-html.dark #tab2:checked ~ .nav-bar label[for="tab2"],
-html.dark #tab3:checked ~ .nav-bar label[for="tab3"] {
+html.dark #tab2:checked ~ .nav-bar label[for="tab2"] {
   background:#3b82f6; color:#fff; border-color:#3b82f6; }
 
 /* ── Tab panels ── */
 .tab-panel { display:none; padding:28px 36px; }
 #tab0:checked ~ .tab-panel.p0,
 #tab1:checked ~ .tab-panel.p1,
-#tab2:checked ~ .tab-panel.p2,
-#tab3:checked ~ .tab-panel.p3 { display:block; }
-.tab-panel.p3 { padding:0; }
+#tab2:checked ~ .tab-panel.p2 { display:block; }
+.tab-panel.p2 { padding:0; }
 
 /* ── Experiments sub-nav ── */
 #exp-tab1:checked ~ .sub-nav-bar label[for="exp-tab1"] { color:var(--blue); border-bottom-color:var(--blue); }
 #exp-tab1:checked ~ .sub-panel.ep1 { display:block; }
 
 /* ── C1B iframe ── */
-.c1b-toolbar { display:flex; align-items:center; gap:10px; padding:10px 20px; border-bottom:1px solid var(--border); background:var(--card); }
-.c1b-toolbar-title { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
-.c1b-toolbar-spacer { flex:1; }
-.c1b-status-text { font-size:11px; color:var(--muted); }
-.c1b-refresh-btn { cursor:pointer; background:var(--bg); border:1.5px solid var(--border); color:var(--text); border-radius:8px; padding:6px 14px; font-size:11px; font-weight:700; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:.15s; }
-.c1b-refresh-btn:hover:not(:disabled) { background:var(--border); }
-.c1b-refresh-btn:disabled { opacity:.5; cursor:default; }
-.c1b-refresh-btn.running { color:#0077cc; border-color:rgba(0,119,204,.4); }
-.c1b-refresh-btn.success { color:var(--green); border-color:rgba(22,163,74,.4); }
-.c1b-refresh-btn.error   { color:var(--red);   border-color:rgba(220,38,38,.4); }
-@keyframes c1b-spin { to { transform:rotate(360deg); } }
-.c1b-spin { display:inline-block; animation:c1b-spin 1s linear infinite; }
 .c1b-iframe { display:block; width:100%; min-height:600px; border:none; }
 /* Monitor partner filter bar */
 #mon-filter-bar { margin-bottom:20px; }
@@ -292,10 +277,12 @@ html.dark .sql-block { background:#0a0f1e; }
 .sub-panel { display:none; }
 #recon-tab1:checked ~ .sub-nav-bar label[for="recon-tab1"],
 #recon-tab2:checked ~ .sub-nav-bar label[for="recon-tab2"],
-#recon-tab3:checked ~ .sub-nav-bar label[for="recon-tab3"] { color:var(--blue); border-bottom-color:var(--blue); }
+#recon-tab3:checked ~ .sub-nav-bar label[for="recon-tab3"],
+#recon-tab4:checked ~ .sub-nav-bar label[for="recon-tab4"] { color:var(--blue); border-bottom-color:var(--blue); }
 #recon-tab1:checked ~ .sub-panel.rp1,
 #recon-tab2:checked ~ .sub-panel.rp2,
-#recon-tab3:checked ~ .sub-panel.rp3 { display:block; }
+#recon-tab3:checked ~ .sub-panel.rp3,
+#recon-tab4:checked ~ .sub-panel.rp4 { display:block; }
 #mon-tab1:checked ~ .sub-nav-bar label[for="mon-tab1"],
 #mon-tab2:checked ~ .sub-nav-bar label[for="mon-tab2"] { color:var(--blue); border-bottom-color:var(--blue); }
 #mon-tab1:checked ~ .sub-panel.mp1,
@@ -327,10 +314,6 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
     <div class="header-actions">
       <button class="dark-toggle" onclick="toggleDark()">Dark Mode</button>
     </div>
-  </div>
-  <div class="header-meta">
-    <div class="item"><div class="label">Close Month</div><div class="value">{{ close_month }}</div></div>
-    <div class="item"><div class="label">Generated</div><div class="value">{{ generated_at }} IST</div></div>
   </div>
 </div>
 
@@ -374,182 +357,27 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   <input type="radio" id="tab0" name="tabs" checked>
   <input type="radio" id="tab1" name="tabs">
   <input type="radio" id="tab2" name="tabs">
-  <input type="radio" id="tab3" name="tabs">
   <div class="nav-bar">
-    <label for="tab0" class="nav-tab"><span class="tab-dot dot-grey"></span>About</label>
-    <label for="tab1" class="nav-tab"><span class="tab-dot {% if l1 or l3 %}{% if (l1 and l1.overall_status == 'RED') or (l3 and l3.overall_status == 'RED') %}dot-red{% elif (l1 and l1.overall_status == 'AMBER') or (l3 and l3.overall_status == 'AMBER') %}dot-amber{% else %}dot-green{% endif %}{% else %}dot-grey{% endif %}"></span>Recon</label>
-    <label for="tab2" class="nav-tab"><span class="tab-dot dot-grey"></span>Monitor</label>
-    <label for="tab3" class="nav-tab"><span class="tab-dot dot-blue"></span>Experiments</label>
+    <label for="tab0" class="nav-tab"><span class="tab-dot {% if l1 or l3 %}{% if (l1 and l1.overall_status == 'RED') or (l3 and l3.overall_status == 'RED') %}dot-red{% elif (l1 and l1.overall_status == 'AMBER') or (l3 and l3.overall_status == 'AMBER') %}dot-amber{% else %}dot-green{% endif %}{% else %}dot-grey{% endif %}"></span>Recon</label>
+    <label for="tab1" class="nav-tab"><span class="tab-dot dot-grey"></span>Monitor</label>
+    <label for="tab2" class="nav-tab"><span class="tab-dot dot-blue"></span>Experiments</label>
   </div>
 
-  <!-- ══ TAB 0 — About ══ -->
+  <!-- ══ TAB 0 — Recon (sub-tabs) ══ -->
   <div class="tab-panel p0">
-
-    <!-- 1: Tab Reference -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Tab Reference</h2>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Tab</th><th>Sub-tab</th><th>What it shows</th><th>Primary source</th><th>Refresh</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Recon</strong></td><td>Reports vs Invoice</td><td>Monthly partner payout amounts vs invoice amounts, delta $ and %, variance status and trend charts</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">reports_by_payout_cycle.sql</code></td><td>Daily 9 AM IST</td></tr>
-          <tr><td><strong>Recon</strong></td><td>Cash Collections</td><td>Invoice amounts vs actual cash received from partners, yet-to-receive tracking, collection timeline</td><td><span class="tag tag-green">Google Sheet</span> <code style="font-size:10px">New R : finance</code></td><td>Daily 9 AM IST</td></tr>
-          <tr><td><strong>Monitor</strong></td><td>—</td><td>Day-on-Day and Week-on-Week payout trends by sub-partner, heatmap, Month-on-Month bar chart and breakdown table</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">daily / weekly / monthly_by_partner.sql</code></td><td>Daily 9 AM IST</td></tr>
-          <tr><td><strong>Recon</strong></td><td>Health</td><td>Pipeline run history, step-level status, email log, cron schedule</td><td><span class="tag tag-teal">Local logs</span> <code style="font-size:10px">logs/health_log.json</code></td><td>Written each run</td></tr>
-        </tbody>
-      </table></div>
-    </div>
-
-    <!-- 2: Data Sources -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--green-bg);color:var(--green-text);">2</span> Data Sources</h2>
-      <div class="about-grid">
-        <div class="about-card">
-          <div class="ac-title">Metabase (Athena / Iceberg)</div>
-          <div class="ac-val">cosmos-metabase.brightmoney.co</div>
-          <div class="ac-sub">Database ID: 2 &nbsp;|&nbsp; User: n8n-bot@brightmoney.co</div>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Table: <code>iceberg_db.affiliate__affiliate_revenue__entity</code></div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Key fields: <code>payout_date</code>, <code>partner</code>, <code>payout</code>, <code>conversion_type</code>, <code>l1_conversion</code>, <code>l2_conversion</code>, <code>account</code></div>
-        </div>
-        <div class="about-card">
-          <div class="ac-title">Google Sheet — Cash Collections</div>
-          <div class="ac-val">New R : finance</div>
-          <div class="ac-sub">Sheet ID: <code style="font-size:10px">1EJPJubKrClHduO-_EgK-6Sh53dTB7Mmf0o5NHgxVsnQ</code></div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">GID: 1688298716 &nbsp;|&nbsp; Header row: 10 &nbsp;|&nbsp; Data starts row: 11</div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Auth: Service account key (<code>google_sa_key.json</code>)</div>
-        </div>
-        <div class="about-card">
-          <div class="ac-title">Manual Inputs</div>
-          <div class="ac-val">manual_inputs.yaml</div>
-          <div class="ac-sub">Optional overrides checked each run</div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Fields: <code>close_month</code> (default: current month − 1), <code>signoffs</code> (partner × cycle sign-off flags)</div>
-        </div>
-        <div class="about-card">
-          <div class="ac-title">Pipeline Schedule</div>
-          <div class="ac-val">Daily 9:00 AM IST</div>
-          <div class="ac-sub">Cron: 03:30 UTC — run_recon.py</div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Email report: 03:50 UTC — run_email_report.py</div>
-          <div style="margin-top:4px;font-size:11px;color:var(--muted)">Slack alert on FAILED or PARTIAL runs</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 3: SQL Queries -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">3</span> SQL Queries</h2>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">All queries run via Metabase <code>/api/dataset</code> endpoint against Athena (database_id=2). SQL files live in <code>queries/</code> — edit there to change what's pulled.</p>
-
-      <details open><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">reports_by_payout_cycle.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Recon &gt; Reports vs Invoice &nbsp;|&nbsp; all history</span></summary>
-        <pre class="sql-block">{{ sql_reports | e }}</pre>
-      </details>
-
-      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">daily_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: day-on-day &amp; heatmap &nbsp;|&nbsp; last 60 days &nbsp;|&nbsp; MoneyLion sub-partners kept split</span></summary>
-        <pre class="sql-block">{{ sql_daily | e }}</pre>
-      </details>
-
-      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">weekly_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: week-on-week &nbsp;|&nbsp; last 16 weeks</span></summary>
-        <pre class="sql-block">{{ sql_weekly | e }}</pre>
-      </details>
-
-      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">monthly_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: month-on-month &nbsp;|&nbsp; last 13 months</span></summary>
-        <pre class="sql-block">{{ sql_monthly | e }}</pre>
-      </details>
-    </div>
-
-    <!-- 4: Partner Name Mapping -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">4</span> Partner Name Mapping</h2>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Raw DB partner names are normalised differently in each context. The Recon tab collapses all MoneyLion sub-partners; Monitor keeps them split.</p>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>DB Partner Name(s)</th><th>Recon (canonical)</th><th>Monitor display</th><th>GSheet name</th></tr></thead>
-        <tbody>
-          <tr><td><code style="font-size:10px">EngineAPI, EngineCC, EngineSDK, EngineStatic</code></td><td><span class="partner-dot moneylion"></span>MoneyLion</td><td><em>kept split</em> (EngineAPI, EngineCC…)</td><td>Engine</td></tr>
-          <tr><td><code style="font-size:10px">AmoneAPI</code></td><td><span class="partner-dot amone"></span>AmONE</td><td>AmONE</td><td>AmOne</td></tr>
-          <tr><td><code style="font-size:10px">PBrigit</code></td><td><span class="partner-dot brigit"></span>Brigit</td><td>Brigit</td><td>Brigit</td></tr>
-          <tr><td><code style="font-size:10px">Pkashkick</code></td><td><span class="partner-dot kashkick"></span>Kashkick</td><td>Kashkick</td><td>Kashkick</td></tr>
-          <tr><td><code style="font-size:10px">PFreecash</code></td><td><span class="partner-dot freecash"></span>Freecash</td><td>Freecash</td><td>Freecash</td></tr>
-          <tr><td><code style="font-size:10px">PSupermoney</code></td><td><span class="partner-dot supermoney"></span>Supermoney</td><td>SuperMoney</td><td>Supermoney</td></tr>
-        </tbody>
-      </table></div>
-    </div>
-
-    <!-- 5: Partner Configuration -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--amber-bg);color:var(--amber-text);">5</span> Partner Configuration</h2>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Partner</th><th>Payout Cycles</th><th>Payment Term</th><th>Accel. Charge</th><th>GSheet Name</th></tr></thead>
-        <tbody>{% for p, cfg in partner_config.items() %}<tr>
-          <td><span class="partner-dot {{ p }}"></span><strong>{{ partner_display[p] }}</strong></td>
-          <td>{{ cfg.cycles }}</td>
-          <td>{{ cfg.payment_term }} days</td>
-          <td>{{ cfg.accel_charge }}</td>
-          <td><code style="font-size:11px">{{ cfg.gsheet_name }}</code></td>
-        </tr>{% endfor %}</tbody>
-      </table></div>
-      <p style="font-size:11px;color:var(--muted);margin-top:10px"><strong>Cycle logic (MoneyLion):</strong> payout_date day &le; 15 → C1 &nbsp;|&nbsp; day &gt; 15 → C2. All other partners: single cycle C1.</p>
-    </div>
-
-    <!-- 6: Status Logic & Variance Thresholds -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">6</span> Status Logic &amp; Variance Thresholds</h2>
-
-      <h3 style="margin-bottom:10px">Reports vs Invoice — Monthly Reconciliation</h3>
-      <div class="about-grid" style="margin-bottom:16px">
-        <div>
-          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Status Badge — Label (Variance Status)</p>
-          <div class="rule-row"><span class="rule-condition">|delta%| within GREEN threshold</span><span class="rule-result"><span class="badge GREEN">Low</span></span></div>
-          <div class="rule-row"><span class="rule-condition">|delta%| within AMBER threshold</span><span class="rule-result"><span class="badge AMBER">Medium</span></span></div>
-          <div class="rule-row"><span class="rule-condition">|delta%| exceeds AMBER threshold</span><span class="rule-result"><span class="badge RED">High</span></span></div>
-          <div class="rule-row"><span class="rule-condition">No invoice or future month</span><span class="rule-result"><span class="badge PENDING">Pending</span></span></div>
-        </div>
-        <div>
-          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Status Badge — Color (Variance Thresholds)</p>
-          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;|delta%| &lt; 5%</span><span class="rule-result" style="color:var(--green-text)">GREEN (Low)</span></div>
-          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;5% &le; |delta%| &lt; 10%</span><span class="rule-result" style="color:var(--amber-text)">AMBER (Medium)</span></div>
-          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;|delta%| &ge; 10%</span><span class="rule-result" style="color:var(--red-text)">RED (High)</span></div>
-          <div class="rule-row"><span class="rule-condition">All others &nbsp;|delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">GREEN (Low)</span></div>
-          <div class="rule-row"><span class="rule-condition">All others &nbsp;2% &le; |delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">AMBER (Medium)</span></div>
-          <div class="rule-row"><span class="rule-condition">All others &nbsp;|delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">RED (High)</span></div>
-        </div>
-      </div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:16px">The badge label shows Variance Status (Low / Medium / High / Pending) and the badge color reflects GREEN / AMBER / RED based on the thresholds above.</p>
-
-      <h3 style="margin-bottom:10px">Cash Collections (Invoice vs Cash Received)</h3>
-      <div class="rule-row"><span class="rule-condition">Received $ &ge; Invoiced $</span><span class="rule-result" style="color:var(--green-text)">GREEN &nbsp;(positive delta)</span></div>
-      <div class="rule-row"><span class="rule-condition">Received $ &lt; Invoiced $</span><span class="rule-result" style="color:var(--red-text)">RED &nbsp;(shortfall)</span></div>
-      <div class="rule-row"><span class="rule-condition">|net delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">Low variance</span></div>
-      <div class="rule-row"><span class="rule-condition">2% &le; |net delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">Medium variance</span></div>
-      <div class="rule-row" style="margin-bottom:16px"><span class="rule-condition">|net delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">High variance</span></div>
-      <p style="font-size:11px;color:var(--muted)">Delta = Received − Invoiced. Net delta accounts for acceleration charge deductions where applicable. Rows marked "Signed Off" have product sign-off (product_signoff = Yes in the sheet).</p>
-    </div>
-
-    <!-- 7: System Configuration -->
-    <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">7</span> System Configuration</h2>
-      <div class="tbl-wrap"><table class="cfg-tbl">
-        <thead><tr><th>Setting</th><th>Value</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td>Close month</td><td><code>current_month − 1</code> (dynamic)</td><td>Auto-derived each run; override via <code>--month YYYY-MM</code> flag on run_recon.py for backfills</td></tr>
-          <tr><td>Daily data window</td><td>Last 60 days</td><td>daily_by_partner.sql — used for day-on-day chart &amp; heatmap</td></tr>
-          <tr><td>Weekly data window</td><td>Last 16 weeks</td><td>weekly_by_partner.sql — WoW chart</td></tr>
-          <tr><td>Monthly data window</td><td>Last 13 months</td><td>monthly_by_partner.sql — MoM chart</td></tr>
-          <tr><td>Heatmap window</td><td>Last 14 days</td><td>Shown in Monitor &gt; Day-on-Day section</td></tr>
-          <tr><td>Health log retention</td><td>90 entries</td><td>health_log.json — older entries are pruned</td></tr>
-          <tr><td>Email log retention</td><td>90 entries</td><td>email_log.json</td></tr>
-          <tr><td>Metabase DB ID</td><td>2 (Athena / Iceberg)</td><td>METABASE_DATABASE_ID in config.py</td></tr>
-          <tr><td>Google Sheet header</td><td>Row 10</td><td>Data starts row 11, GID 1688298716</td></tr>
-          <tr><td>Acceleration charge</td><td>3% (MoneyLion only)</td><td>Applied when payment term &lt; 30 days</td></tr>
-          <tr><td>Slack alerts</td><td>On FAILED or PARTIAL runs</td><td>Webhook URL via SLACK_WEBHOOK_URL env var</td></tr>
-        </tbody>
-      </table></div>
-    </div>
-
-  </div><!-- /p0 About -->
-
-  <!-- ══ TAB 1 — Recon (sub-tabs) ══ -->
-  <div class="tab-panel p1">
   <input type="radio" id="recon-tab1" name="recon-tabs" checked>
   <input type="radio" id="recon-tab2" name="recon-tabs">
   <input type="radio" id="recon-tab3" name="recon-tabs">
+  <input type="radio" id="recon-tab4" name="recon-tabs">
   <div class="sub-nav-bar" style="justify-content:space-between;align-items:center;">
     <div style="display:flex;">
       <label for="recon-tab1"><span class="tab-dot {% if l1 %}{% if l1.overall_status == 'GREEN' %}dot-green{% elif l1.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Reports vs Invoice</label>
       <label for="recon-tab2"><span class="tab-dot {% if l3 %}{% if l3.overall_status == 'GREEN' %}dot-green{% elif l3.overall_status == 'AMBER' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Cash Collections</label>
       <label for="recon-tab3"><span class="tab-dot {% if health_log %}{% if health_log[-1].status == 'SUCCESS' %}dot-green{% elif health_log[-1].status == 'PARTIAL' %}dot-amber{% else %}dot-red{% endif %}{% else %}dot-grey{% endif %}"></span>Health</label>
+      <label for="recon-tab4"><span class="tab-dot dot-grey"></span>About</label>
     </div>
-    <div style="padding-right:16px;">
+    <div style="display:flex;align-items:center;gap:12px;padding-right:16px;">
+      <span style="font-size:11px;color:var(--muted)" id="reconRefreshMeta">{{ generated_at }} IST</span>
       <button class="refresh-btn" id="refreshBtn" onclick="triggerRefresh()">&#x21bb; Refresh</button>
     </div>
   </div>
@@ -683,15 +511,171 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
     </div>
   </div><!-- /rp3 Health -->
 
-  </div><!-- /p1 Recon -->
+  <!-- About sub-tab -->
+  <div class="sub-panel rp4" style="padding:28px 36px;">
 
-  <!-- ══ TAB 2 — Monitor ══ -->
-  <div class="tab-panel p2">
+    <!-- 1: Tab Reference -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--blue-bg);color:var(--blue-text);">1</span> Tab Reference</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Tab</th><th>Sub-tab</th><th>What it shows</th><th>Primary source</th><th>Refresh</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Recon</strong></td><td>Reports vs Invoice</td><td>Monthly partner payout amounts vs invoice amounts, delta $ and %, variance status and trend charts</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">reports_by_payout_cycle.sql</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Recon</strong></td><td>Cash Collections</td><td>Invoice amounts vs actual cash received from partners, yet-to-receive tracking, collection timeline</td><td><span class="tag tag-green">Google Sheet</span> <code style="font-size:10px">New R : finance</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Monitor</strong></td><td>—</td><td>Day-on-Day and Week-on-Week payout trends by sub-partner, heatmap, Month-on-Month bar chart and breakdown table</td><td><span class="tag tag-blue">Metabase SQL</span> <code style="font-size:10px">daily / weekly / monthly_by_partner.sql</code></td><td>Daily 9 AM IST</td></tr>
+          <tr><td><strong>Recon</strong></td><td>Health</td><td>Pipeline run history, step-level status, email log, cron schedule</td><td><span class="tag tag-teal">Local logs</span> <code style="font-size:10px">logs/health_log.json</code></td><td>Written each run</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- 2: Data Sources -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--green-bg);color:var(--green-text);">2</span> Data Sources</h2>
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="ac-title">Metabase (Athena / Iceberg)</div>
+          <div class="ac-val">cosmos-metabase.brightmoney.co</div>
+          <div class="ac-sub">Database ID: 2 &nbsp;|&nbsp; User: n8n-bot@brightmoney.co</div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Table: <code>iceberg_db.affiliate__affiliate_revenue__entity</code></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Key fields: <code>payout_date</code>, <code>partner</code>, <code>payout</code>, <code>conversion_type</code>, <code>l1_conversion</code>, <code>l2_conversion</code>, <code>account</code></div>
+        </div>
+        <div class="about-card">
+          <div class="ac-title">Google Sheet — Cash Collections</div>
+          <div class="ac-val">New R : finance</div>
+          <div class="ac-sub">Sheet ID: <code style="font-size:10px">1EJPJubKrClHduO-_EgK-6Sh53dTB7Mmf0o5NHgxVsnQ</code></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">GID: 1688298716 &nbsp;|&nbsp; Header row: 10 &nbsp;|&nbsp; Data starts row: 11</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Auth: Service account key (<code>google_sa_key.json</code>)</div>
+        </div>
+        <div class="about-card">
+          <div class="ac-title">Manual Inputs</div>
+          <div class="ac-val">manual_inputs.yaml</div>
+          <div class="ac-sub">Optional overrides checked each run</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Fields: <code>close_month</code> (default: current month − 1), <code>signoffs</code> (partner × cycle sign-off flags)</div>
+        </div>
+        <div class="about-card">
+          <div class="ac-title">Pipeline Schedule</div>
+          <div class="ac-val">Daily 9:00 AM IST</div>
+          <div class="ac-sub">Cron: 03:30 UTC — run_recon.py</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Email report: 03:50 UTC — run_email_report.py</div>
+          <div style="margin-top:4px;font-size:11px;color:var(--muted)">Slack alert on FAILED or PARTIAL runs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3: SQL Queries -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">3</span> SQL Queries</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">All queries run via Metabase <code>/api/dataset</code> endpoint against Athena (database_id=2). SQL files live in <code>queries/</code> — edit there to change what's pulled.</p>
+      <details open><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">reports_by_payout_cycle.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Recon &gt; Reports vs Invoice &nbsp;|&nbsp; all history</span></summary>
+        <pre class="sql-block">{{ sql_reports | e }}</pre>
+      </details>
+      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">daily_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: day-on-day &amp; heatmap &nbsp;|&nbsp; last 60 days &nbsp;|&nbsp; MoneyLion sub-partners kept split</span></summary>
+        <pre class="sql-block">{{ sql_daily | e }}</pre>
+      </details>
+      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">weekly_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: week-on-week &nbsp;|&nbsp; last 16 weeks</span></summary>
+        <pre class="sql-block">{{ sql_weekly | e }}</pre>
+      </details>
+      <details style="margin-top:12px"><summary style="font-weight:700;font-size:13px;cursor:pointer;padding:6px 0">monthly_by_partner.sql <span style="font-size:11px;font-weight:400;color:var(--muted)"> — Monitor: month-on-month &nbsp;|&nbsp; last 13 months</span></summary>
+        <pre class="sql-block">{{ sql_monthly | e }}</pre>
+      </details>
+    </div>
+
+    <!-- 4: Partner Name Mapping -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--teal-bg);color:var(--teal-text);">4</span> Partner Name Mapping</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Raw DB partner names are normalised differently in each context. The Recon tab collapses all MoneyLion sub-partners; Monitor keeps them split.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>DB Partner Name(s)</th><th>Recon (canonical)</th><th>Monitor display</th><th>GSheet name</th></tr></thead>
+        <tbody>
+          <tr><td><code style="font-size:10px">EngineAPI, EngineCC, EngineSDK, EngineStatic</code></td><td><span class="partner-dot moneylion"></span>MoneyLion</td><td><em>kept split</em> (EngineAPI, EngineCC…)</td><td>Engine</td></tr>
+          <tr><td><code style="font-size:10px">AmoneAPI</code></td><td><span class="partner-dot amone"></span>AmONE</td><td>AmONE</td><td>AmOne</td></tr>
+          <tr><td><code style="font-size:10px">PBrigit</code></td><td><span class="partner-dot brigit"></span>Brigit</td><td>Brigit</td><td>Brigit</td></tr>
+          <tr><td><code style="font-size:10px">Pkashkick</code></td><td><span class="partner-dot kashkick"></span>Kashkick</td><td>Kashkick</td><td>Kashkick</td></tr>
+          <tr><td><code style="font-size:10px">PFreecash</code></td><td><span class="partner-dot freecash"></span>Freecash</td><td>Freecash</td><td>Freecash</td></tr>
+          <tr><td><code style="font-size:10px">PSupermoney</code></td><td><span class="partner-dot supermoney"></span>Supermoney</td><td>SuperMoney</td><td>Supermoney</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- 5: Partner Configuration -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--amber-bg);color:var(--amber-text);">5</span> Partner Configuration</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Partner</th><th>Payout Cycles</th><th>Payment Term</th><th>Accel. Charge</th><th>GSheet Name</th></tr></thead>
+        <tbody>{% for p, cfg in partner_config.items() %}<tr>
+          <td><span class="partner-dot {{ p }}"></span><strong>{{ partner_display[p] }}</strong></td>
+          <td>{{ cfg.cycles }}</td>
+          <td>{{ cfg.payment_term }} days</td>
+          <td>{{ cfg.accel_charge }}</td>
+          <td><code style="font-size:11px">{{ cfg.gsheet_name }}</code></td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px"><strong>Cycle logic (MoneyLion):</strong> payout_date day &le; 15 → C1 &nbsp;|&nbsp; day &gt; 15 → C2. All other partners: single cycle C1.</p>
+    </div>
+
+    <!-- 6: Status Logic & Variance Thresholds -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--rose-bg);color:var(--rose-text);">6</span> Status Logic &amp; Variance Thresholds</h2>
+      <h3 style="margin-bottom:10px">Reports vs Invoice — Monthly Reconciliation</h3>
+      <div class="about-grid" style="margin-bottom:16px">
+        <div>
+          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Status Badge — Label (Variance Status)</p>
+          <div class="rule-row"><span class="rule-condition">|delta%| within GREEN threshold</span><span class="rule-result"><span class="badge GREEN">Low</span></span></div>
+          <div class="rule-row"><span class="rule-condition">|delta%| within AMBER threshold</span><span class="rule-result"><span class="badge AMBER">Medium</span></span></div>
+          <div class="rule-row"><span class="rule-condition">|delta%| exceeds AMBER threshold</span><span class="rule-result"><span class="badge RED">High</span></span></div>
+          <div class="rule-row"><span class="rule-condition">No invoice or future month</span><span class="rule-result"><span class="badge PENDING">Pending</span></span></div>
+        </div>
+        <div>
+          <p style="font-size:12px;font-weight:600;margin-bottom:6px">Status Badge — Color (Variance Thresholds)</p>
+          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;|delta%| &lt; 5%</span><span class="rule-result" style="color:var(--green-text)">GREEN (Low)</span></div>
+          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;5% &le; |delta%| &lt; 10%</span><span class="rule-result" style="color:var(--amber-text)">AMBER (Medium)</span></div>
+          <div class="rule-row"><span class="rule-condition">MoneyLion &amp; AmONE &nbsp;|delta%| &ge; 10%</span><span class="rule-result" style="color:var(--red-text)">RED (High)</span></div>
+          <div class="rule-row"><span class="rule-condition">All others &nbsp;|delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">GREEN (Low)</span></div>
+          <div class="rule-row"><span class="rule-condition">All others &nbsp;2% &le; |delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">AMBER (Medium)</span></div>
+          <div class="rule-row"><span class="rule-condition">All others &nbsp;|delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">RED (High)</span></div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:16px">The badge label shows Variance Status (Low / Medium / High / Pending) and the badge color reflects GREEN / AMBER / RED based on the thresholds above.</p>
+      <h3 style="margin-bottom:10px">Cash Collections (Invoice vs Cash Received)</h3>
+      <div class="rule-row"><span class="rule-condition">Received $ &ge; Invoiced $</span><span class="rule-result" style="color:var(--green-text)">GREEN &nbsp;(positive delta)</span></div>
+      <div class="rule-row"><span class="rule-condition">Received $ &lt; Invoiced $</span><span class="rule-result" style="color:var(--red-text)">RED &nbsp;(shortfall)</span></div>
+      <div class="rule-row"><span class="rule-condition">|net delta%| &lt; 2%</span><span class="rule-result" style="color:var(--green-text)">Low variance</span></div>
+      <div class="rule-row"><span class="rule-condition">2% &le; |net delta%| &lt; 5%</span><span class="rule-result" style="color:var(--amber-text)">Medium variance</span></div>
+      <div class="rule-row" style="margin-bottom:16px"><span class="rule-condition">|net delta%| &ge; 5%</span><span class="rule-result" style="color:var(--red-text)">High variance</span></div>
+      <p style="font-size:11px;color:var(--muted)">Delta = Received − Invoiced. Net delta accounts for acceleration charge deductions where applicable. Rows marked "Signed Off" have product sign-off (product_signoff = Yes in the sheet).</p>
+    </div>
+
+    <!-- 7: System Configuration -->
+    <div class="section"><h2><span class="section-icon" style="background:var(--grey-bg);color:var(--grey-text);">7</span> System Configuration</h2>
+      <div class="tbl-wrap"><table class="cfg-tbl">
+        <thead><tr><th>Setting</th><th>Value</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Close month</td><td><code>current_month − 1</code> (dynamic)</td><td>Auto-derived each run; override via <code>--month YYYY-MM</code> flag on run_recon.py for backfills</td></tr>
+          <tr><td>Daily data window</td><td>Last 60 days</td><td>daily_by_partner.sql — used for day-on-day chart &amp; heatmap</td></tr>
+          <tr><td>Weekly data window</td><td>Last 16 weeks</td><td>weekly_by_partner.sql — WoW chart</td></tr>
+          <tr><td>Monthly data window</td><td>Last 13 months</td><td>monthly_by_partner.sql — MoM chart</td></tr>
+          <tr><td>Heatmap window</td><td>Last 14 days</td><td>Shown in Monitor &gt; Day-on-Day section</td></tr>
+          <tr><td>Health log retention</td><td>90 entries</td><td>health_log.json — older entries are pruned</td></tr>
+          <tr><td>Email log retention</td><td>90 entries</td><td>email_log.json</td></tr>
+          <tr><td>Metabase DB ID</td><td>2 (Athena / Iceberg)</td><td>METABASE_DATABASE_ID in config.py</td></tr>
+          <tr><td>Google Sheet header</td><td>Row 10</td><td>Data starts row 11, GID 1688298716</td></tr>
+          <tr><td>Acceleration charge</td><td>3% (MoneyLion only)</td><td>Applied when payment term &lt; 30 days</td></tr>
+          <tr><td>Slack alerts</td><td>On FAILED or PARTIAL runs</td><td>Webhook URL via SLACK_WEBHOOK_URL env var</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /rp4 About -->
+
+  </div><!-- /p0 Recon -->
+
+  <!-- ══ TAB 1 — Monitor ══ -->
+  <div class="tab-panel p1">
   <input type="radio" id="mon-tab1" name="mon-tabs" checked>
   <input type="radio" id="mon-tab2" name="mon-tabs">
-  <div class="sub-nav-bar">
-    <label for="mon-tab1"><span class="tab-dot dot-grey"></span>Payouts</label>
-    <label for="mon-tab2"><span class="tab-dot dot-blue"></span>Enrolls</label>
+  <div class="sub-nav-bar" style="justify-content:space-between;align-items:center;">
+    <div style="display:flex;">
+      <label for="mon-tab1"><span class="tab-dot dot-grey"></span>Payouts</label>
+      <label for="mon-tab2"><span class="tab-dot dot-blue"></span>Enrolls</label>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding-right:16px;">
+      <span style="font-size:11px;color:var(--muted)" id="monRefreshMeta">{{ generated_at }} IST</span>
+      <button class="refresh-btn" id="monRefreshBtn" onclick="triggerMonitorRefresh()">&#x21bb; Refresh</button>
+    </div>
   </div>
   <div class="sub-panel mp1">
     <!-- Partner filter -->
@@ -769,28 +753,29 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
     </div>
   </div><!-- /mp2 Enrolls -->
 
-  </div><!-- /p2 Monitor -->
+  </div><!-- /p1 Monitor -->
 
-  <!-- ══ TAB 3 — Experiments ══ -->
-  <div class="tab-panel p3">
+  <!-- ══ TAB 2 — Experiments ══ -->
+  <div class="tab-panel p2">
     <input type="radio" id="exp-tab1" name="exp-tabs" checked>
-    <div class="sub-nav-bar">
-      <label for="exp-tab1"><span class="tab-dot dot-blue"></span>C1B</label>
-      <div style="flex:1"></div>
-      <div class="c1b-toolbar" style="border:none;padding:8px 20px 8px 0;background:transparent;">
-        <span class="c1b-status-text" id="c1bStatusText"></span>
-        <button class="c1b-refresh-btn" id="c1bRefreshBtn" onclick="triggerC1BRefresh()">&#x21bb; Refresh C1B</button>
+    <div class="sub-nav-bar" style="justify-content:space-between;align-items:center;">
+      <div style="display:flex;">
+        <label for="exp-tab1"><span class="tab-dot dot-blue"></span>C1B</label>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding-right:16px;">
+        <span style="font-size:11px;color:var(--muted)" id="c1bStatusText"></span>
+        <button class="refresh-btn" id="c1bRefreshBtn" onclick="triggerC1BRefresh()">&#x21bb; Refresh</button>
       </div>
     </div>
     <div class="sub-panel ep1">
       <iframe class="c1b-iframe" id="c1bFrame" src="c1b_dashboard.html" title="C1B Experiment Dashboard"></iframe>
     </div>
-  </div><!-- /p3 Experiments -->
+  </div><!-- /p2 Experiments -->
 
 </div><!-- /tab-wrapper -->
 </div><!-- /body-wrap -->
 
-<div class="footer">Dashboard generated: {{ generated_at }} IST &nbsp;&bull;&nbsp; Affiliates Analytics</div>
+<div class="footer">Affiliates Analytics</div>
 
 </div><!-- /container -->
 
@@ -1527,6 +1512,65 @@ window.addEventListener('message', function(e) {
   }
 });
 
+// ── Monitor Refresh (shares recon pipeline) ───────────────────────────────────
+(function() {
+  var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+  var pollTimer = null;
+
+  function btn()  { return document.getElementById('monRefreshBtn'); }
+  function meta() { return document.getElementById('monRefreshMeta'); }
+
+  function setState(state, label) {
+    var b = btn(); if (!b) return;
+    b.className = 'refresh-btn' + (state ? ' ' + state : '');
+    b.disabled  = (state === 'running');
+    b.innerHTML = label;
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(poll, 4000);
+  }
+
+  function poll() {
+    fetch(API + '/api/refresh-status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'running') return;
+        clearInterval(pollTimer);
+        if (d.status === 'success') {
+          setState('success', '&#x2713; Done — reloading');
+          setTimeout(function() { window.location.reload(); }, 1200);
+        } else {
+          setState('error', '&#x2715; Failed');
+        }
+      })
+      .catch(function() {});
+  }
+
+  window.triggerMonitorRefresh = function() {
+    setState('running', '<span class="spin">&#x21bb;</span> Refreshing…');
+    fetch(API + '/api/refresh', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'started' || d.status === 'already_running') startPolling();
+      })
+      .catch(function() { setState('error', '&#x2715; Server unreachable'); });
+  };
+
+  window.addEventListener('load', function() {
+    fetch(API + '/api/refresh-status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'running') {
+          setState('running', '<span class="spin">&#x21bb;</span> Refreshing…');
+          startPolling();
+        }
+      })
+      .catch(function() {});
+  });
+})();
+
 // ── C1B Refresh ───────────────────────────────────────────────────────────────
 (function() {
   var API = window.location.protocol + '//' + window.location.hostname + ':8765';
@@ -1537,7 +1581,7 @@ window.addEventListener('message', function(e) {
 
   function setState(state, label, msg) {
     var b = btn(); if (!b) return;
-    b.className = 'c1b-refresh-btn' + (state ? ' ' + state : '');
+    b.className = 'refresh-btn' + (state ? ' ' + state : '');
     b.disabled  = (state === 'running');
     b.innerHTML = label;
     if (status()) status().textContent = msg || '';
@@ -1566,7 +1610,7 @@ window.addEventListener('message', function(e) {
   }
 
   window.triggerC1BRefresh = function() {
-    setState('running', '<span class="c1b-spin">&#x21bb;</span> Refreshing…', 'Running queries…');
+    setState('running', '<span class="spin">&#x21bb;</span> Refreshing…', 'Running queries…');
     fetch(API + '/api/refresh-c1b', { method: 'POST' })
       .then(function(r) { return r.json(); })
       .then(function(d) {
@@ -1580,7 +1624,7 @@ window.addEventListener('message', function(e) {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.status === 'running') {
-          setState('running', '<span class="c1b-spin">&#x21bb;</span> Refreshing…', 'Running queries…');
+          setState('running', '<span class="spin">&#x21bb;</span> Refreshing…', 'Running queries…');
           startPolling();
         } else if (d.finished_at) {
           if (status()) status().textContent = 'Last: ' + d.finished_at;

@@ -16,29 +16,14 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;overflow-x:hidden}
 
-/* ── Experiment meta strip ── */
-.exp-meta{display:flex;justify-content:space-between;align-items:center;padding:16px 28px 8px;font-size:11px;color:var(--muted)}
-.exp-meta strong{color:var(--text);font-weight:700}
-.exp-badge{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:700;color:var(--muted);box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.exp-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--blue)}
-
-/* ── KPI funnel strip ── */
-.funnel-row{display:flex;align-items:stretch;gap:0;padding:8px 28px 16px;flex-wrap:nowrap;overflow-x:auto}
-.funnel-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;min-width:130px;flex:1;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.fc-label{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:6px}
-.fc-value{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.5px}
-.fc-rate{font-size:10.5px;color:var(--muted);margin-top:5px}
-.fc-rate strong{color:var(--blue);font-weight:700}
-.funnel-arrow{font-size:22px;color:#cbd5e1;padding:0 6px;flex-shrink:0;align-self:center}
-
 /* ── Main tabs (match recon sub-nav style) ── */
-.nav-wrap{padding:0 28px;background:var(--card);border-bottom:2px solid var(--border);border-top:1px solid var(--border);display:flex;gap:0}
+.nav-wrap{padding:0 28px;background:var(--card);border-bottom:2px solid var(--border);display:flex;gap:0}
 .main-tab{padding:11px 20px;border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:inherit;transition:color .15s,border-color .15s}
 .main-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 .main-tab:hover:not(.active){color:var(--text)}
 
 /* ── Tab content ── */
-.tab-pane{display:none;padding:20px 28px 36px}
+.tab-pane{display:none;padding:24px 28px 36px}
 .tab-pane.active{display:block}
 
 /* ── Sub-tabs (pills) ── */
@@ -70,37 +55,6 @@ tr:hover td{background:#f8fafc}
 </style>
 </head>
 <body>
-
-<div class="exp-meta">
-  <div>
-    <span class="exp-badge"><span class="exp-badge-dot"></span>C1B Experiment</span>
-    &nbsp;&nbsp;
-    <span>Treatment7 <strong>Test</strong> vs Treatment3 <strong>Control</strong> &nbsp;·&nbsp; Start: <strong>2026-04-09</strong></span>
-  </div>
-  <div>Refreshed <strong>May 12, 2026</strong></div>
-</div>
-
-<div class="funnel-row"><div class="funnel-card">
-  <div class="fc-label">Test Enrolls</div>
-  <div class="fc-value">14,107</div>
-  <div class="fc-rate">of total: <strong>100%</strong></div>
-</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
-  <div class="fc-label">Eligible Users</div>
-  <div class="fc-value">3,915</div>
-  <div class="fc-rate">of enrolls: <strong>27.75%</strong></div>
-</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
-  <div class="fc-label">Offers Available</div>
-  <div class="fc-value">647</div>
-  <div class="fc-rate">of eligible: <strong>16.53%</strong></div>
-</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
-  <div class="fc-label">Impressions Shown</div>
-  <div class="fc-value">541</div>
-  <div class="fc-rate">of offers: <strong>83.62%</strong></div>
-</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
-  <div class="fc-label">Clicks</div>
-  <div class="fc-value">107</div>
-  <div class="fc-rate">of impressions: <strong>19.78%</strong></div>
-</div></div>
 
 <div class="nav-wrap">
   <button class="main-tab active" onclick="showTab('l0',this)">Report Card</button>
@@ -254,7 +208,7 @@ tr:hover td{background:#f8fafc}
 <div class="view-grid">
 <div class="card"><h3>Segment Share: Control vs Test</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_11"></canvas></div></div>
 </div>
-<div class="card full"><h3>User Segment Overlap Table</h3><div class="tbl-wrap"><table><thead><tr><th>Segment</th><th>Control Count</th><th>Control %</th><th>Test Count</th><th>Test %</th><th>Δ %</th></tr></thead><tbody><tr><td>l2</td><td>42591</td><td>78.60%</td><td>8295</td><td>72.80%</td><td>-5.80%</td></tr><tr><td>l1</td><td>11627</td><td>21.40%</td><td>2559</td><td>22.40%</td><td>+1.00%</td></tr><tr><td>l2_c1</td><td>0</td><td>0.00%</td><td>306</td><td>2.70%</td><td>+2.70%</td></tr><tr><td>l1_c1</td><td>0</td><td>0.00%</td><td>240</td><td>2.10%</td><td>+2.10%</td></tr></tbody></table></div></div>
+<div class="card full"><h3>User Segment Overlap Table</h3><div class="tbl-wrap"><table><thead><tr><th>Segment</th><th>Control Count</th><th>Control %</th><th>Test Count</th><th>Test %</th><th>Δ %</th></tr></thead><tbody><tr><td>l2</td><td>42592</td><td>78.60%</td><td>8295</td><td>72.80%</td><td>-5.80%</td></tr><tr><td>l1</td><td>11628</td><td>21.40%</td><td>2559</td><td>22.40%</td><td>+1.00%</td></tr><tr><td>l2_c1</td><td>0</td><td>0.00%</td><td>306</td><td>2.70%</td><td>+2.70%</td></tr><tr><td>l1_c1</td><td>0</td><td>0.00%</td><td>240</td><td>2.10%</td><td>+2.10%</td></tr></tbody></table></div></div>
 
 <script>
 (function(){

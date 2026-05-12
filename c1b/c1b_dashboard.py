@@ -1700,97 +1700,77 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>C1B Impact Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root {{
-  --primary:#1e3a5f; --secondary:#2563eb; --success:#16a34a;
-  --danger:#dc2626;  --warn:#d97706;      --neutral:#6b7280;
-  --bg:#f8fafc;      --card:#ffffff;      --border:#e2e8f0;
+:root{{
+  --bg:#f0f2f5; --card:#ffffff; --border:#e2e8f0;
+  --text:#1a1a2e; --muted:#718096; --subtle:#a0aec0;
+  --blue:#3b82f6; --green:#16a34a; --red:#dc2626; --amber:#d97706;
+  --primary:#0f172a;
 }}
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:#1e293b;font-size:14px}}
-/* Header */
-.hdr{{background:var(--primary);color:#fff;padding:18px 32px;display:flex;justify-content:space-between;align-items:center}}
-.hdr h1{{font-size:18px;font-weight:700}}
-.hdr p{{font-size:12px;opacity:.7;margin-top:3px}}
-.hdr .ref{{font-size:11px;opacity:.6;text-align:right}}
-/* Funnel strip */
-.funnel-row{{display:flex;align-items:center;gap:0;padding:20px 32px 0;flex-wrap:nowrap;overflow-x:auto}}
-.funnel-card{{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:140px;flex:1;text-align:center}}
-.fc-label{{font-size:10px;color:var(--neutral);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}}
-.fc-value{{font-size:24px;font-weight:700;color:#1e293b}}
-.fc-rate{{font-size:11px;color:var(--neutral);margin-top:4px}}
-.fc-rate strong{{color:var(--secondary)}}
-.funnel-arrow{{font-size:28px;color:#cbd5e1;padding:0 8px;flex-shrink:0;line-height:1}}
-/* Nav */
-.nav-wrap{{padding:20px 32px 0}}
-.main-tabs{{display:flex;gap:2px;border-bottom:2px solid var(--border)}}
-.main-tab{{padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:var(--neutral);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}}
-.main-tab.active{{color:var(--secondary);border-bottom-color:var(--secondary)}}
-.main-tab:hover:not(.active){{color:#334155}}
-/* Tab content */
-.tab-pane{{display:none;padding:0 32px 32px}}
+body{{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;overflow-x:hidden}}
+
+/* ── Main tabs (match recon sub-nav style) ── */
+.nav-wrap{{padding:0 28px;background:var(--card);border-bottom:2px solid var(--border);display:flex;gap:0}}
+.main-tab{{padding:11px 20px;border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:inherit;transition:color .15s,border-color .15s}}
+.main-tab.active{{color:var(--blue);border-bottom-color:var(--blue)}}
+.main-tab:hover:not(.active){{color:var(--text)}}
+
+/* ── Tab content ── */
+.tab-pane{{display:none;padding:24px 28px 36px}}
 .tab-pane.active{{display:block}}
-/* Sub-tabs */
-.sub-tabs{{display:flex;gap:4px;padding:18px 0 0;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}}
-.sub-tab{{padding:7px 14px;border:1px solid var(--border);border-bottom:none;background:var(--bg);cursor:pointer;font-size:12px;color:var(--neutral);border-radius:6px 6px 0 0}}
-.sub-tab.active{{background:var(--card);color:var(--secondary);font-weight:600}}
-.sub-tab:hover:not(.active){{background:#f1f5f9}}
+
+/* ── Sub-tabs (pills) ── */
+.sub-tabs{{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}}
+.sub-tab{{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:var(--card);cursor:pointer;font-size:11px;font-weight:700;color:var(--muted);font-family:inherit;transition:.15s}}
+.sub-tab.active{{background:var(--primary);color:#fff;border-color:var(--primary)}}
+.sub-tab:hover:not(.active){{border-color:var(--blue);color:var(--text)}}
 .subtab-pane{{display:none}}
 .subtab-pane.active{{display:block}}
-/* Cards & grid */
+
+/* ── Cards & grid ── */
 .view-grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}}
 @media(max-width:900px){{.view-grid{{grid-template-columns:1fr}}}}
-.card{{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px}}
-.card h3{{font-size:11px;font-weight:600;color:var(--neutral);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}}
+.card{{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}}
+.card h3{{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}}
+.card.full{{grid-column:1/-1}}
 .chart-wrap{{position:relative}}
-/* Table */
-.tbl-wrap{{overflow-x:auto;margin-top:4px}}
+
+/* ── Tables ── */
+.tbl-wrap{{overflow-x:auto}}
 table{{width:100%;border-collapse:collapse;font-size:12px}}
-th{{text-align:left;padding:7px 10px;background:#f1f5f9;color:var(--neutral);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}}
-td{{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}}
+th{{text-align:left;padding:8px 12px;background:#f8fafc;color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);white-space:nowrap}}
+td{{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text)}}
 tr:last-child td{{border-bottom:none}}
 tr:hover td{{background:#f8fafc}}
-.positive{{color:var(--success);font-weight:600}}
-.negative{{color:var(--danger);font-weight:600}}
-.neutral-val{{color:var(--neutral)}}
-/* Utility */
-.card.full{{grid-column:1/-1}}
+.positive{{color:var(--green);font-weight:600}}
+.negative{{color:var(--red);font-weight:600}}
+.neutral-val{{color:var(--muted)}}
 </style>
 </head>
 <body>
 
-<div class="hdr">
-  <div>
-    <h1>C1B Experiment Impact Dashboard</h1>
-    <p>Credit One Bank · treatment7 (Test) vs treatment3 (Control) · Experiment start: {exp_start}</p>
-  </div>
-  <div class="ref">Last refreshed<br>{refresh_date}</div>
-</div>
-
-{kpi_cards}
-
 <div class="nav-wrap">
-<div class="main-tabs">
   <button class="main-tab active" onclick="showTab('l0',this)">Report Card</button>
-  <button class="main-tab"        onclick="showTab('l1',this)">Layer 1 · Operational Health</button>
-  <button class="main-tab"        onclick="showTab('l2',this)">Layer 2 · Revenue Impact</button>
-</div>
+  <button class="main-tab"        onclick="showTab('l1',this)">Operational Health</button>
+  <button class="main-tab"        onclick="showTab('l2',this)">Revenue Impact</button>
 </div>
 
-<!-- Layer 0 — Report Card -->
+<!-- Report Card -->
 <div id="tab-l0" class="tab-pane active">
 {content_0}
 </div>
 
-<!-- Layer 1 -->
+<!-- Operational Health -->
 <div id="tab-l1" class="tab-pane">
   <div class="sub-tabs">
     <button class="sub-tab active" onclick="showSub('l1','1a',this)">1A · Eligibility Funnel</button>
     <button class="sub-tab"        onclick="showSub('l1','1b',this)">1B · API Health</button>
     <button class="sub-tab"        onclick="showSub('l1','1c',this)">1C · Impression Delivery</button>
     <button class="sub-tab"        onclick="showSub('l1','1d',this)">1D · Assignment Balance</button>
-    <button class="sub-tab"        onclick="showSub('l1','1e',this)">1E · User Segment Overlap</button>
+    <button class="sub-tab"        onclick="showSub('l1','1e',this)">1E · Segment Overlap</button>
   </div>
   <div id="l1-1a" class="subtab-pane active">{content_1a}</div>
   <div id="l1-1b" class="subtab-pane">{content_1b}</div>
@@ -1799,7 +1779,7 @@ tr:hover td{{background:#f8fafc}}
   <div id="l1-1e" class="subtab-pane">{content_1e}</div>
 </div>
 
-<!-- Layer 2 -->
+<!-- Revenue Impact -->
 <div id="tab-l2" class="tab-pane">
   <div class="sub-tabs">
     <button class="sub-tab active" onclick="showSub('l2','2a',this)">2A · RPU</button>
@@ -1807,13 +1787,13 @@ tr:hover td{{background:#f8fafc}}
   <div id="l2-2a" class="subtab-pane active">{content_2a}</div>
 </div>
 
-
 <script>
 function showTab(id, btn) {{
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   btn.classList.add('active');
+  notifyHeight();
 }}
 function showSub(layer, sub, btn) {{
   var parent = document.getElementById('tab-' + layer);
@@ -1821,6 +1801,15 @@ function showSub(layer, sub, btn) {{
   parent.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
   document.getElementById(layer + '-' + sub).classList.add('active');
   btn.classList.add('active');
+  notifyHeight();
+}}
+function notifyHeight() {{
+  try {{ parent.postMessage({{type:'c1b-height', h: document.body.scrollHeight}}, '*'); }} catch(e) {{}}
+}}
+if (window.ResizeObserver) {{
+  new ResizeObserver(notifyHeight).observe(document.body);
+}} else {{
+  window.addEventListener('load', notifyHeight);
 }}
 </script>
 </body>
@@ -1828,15 +1817,9 @@ function showSub(layer, sub, btn) {{
 
 
 def generate_html(data):
-    kpis = render_kpis(
-        data["rpu_rows"], data["cumul"],
-        data["api_health"], data["impression"],
-        data["funnel"],
-    )
     html = HTML_TEMPLATE.format(
         exp_start    = EXP_START,
         refresh_date = date.today().strftime("%B %d, %Y"),
-        kpi_cards    = kpis,
         content_0    = render_0(data["rc"], data["funnel"]),
         content_1a   = render_1a(data["funnel"]),
         content_1b   = render_1b(data["api_health"]),
