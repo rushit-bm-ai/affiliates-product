@@ -111,6 +111,9 @@ EMAIL_TO = [
     "rushit.virani@brightmoney.co",
     "praveen.b@brightmoney.co",
     "madhu@brightmoney.co",
+    "varun@brightmoney.co",
+    "birendra@brightmoney.co",
+    "ramkumar@brightmoney.co",
 ]
 EMAIL_SUBJECT_TEMPLATE = "Affiliates Recon Report — Week of {date}"
 EMAIL_LOG_FILE = os.path.join(LOGS_DIR, "email_log.json")
