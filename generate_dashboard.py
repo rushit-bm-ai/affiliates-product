@@ -433,6 +433,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <div class="tbl-wrap"><table id="t3c2">
         <thead><tr><th onclick="sortTable('t3c2',0)">Collection Month <span class="sort-ind"></span></th><th onclick="sortTable('t3c2',1)">Partner</th><th onclick="sortTable('t3c2',2)">Payout Month</th><th onclick="sortTable('t3c2',3)">Cycle</th><th class="num" onclick="sortTable('t3c2',4)">Invoice $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t3c2',4)">Received $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t3c2',5)">Delta $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t3c2',6)">Net Delta $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t3c2',7)">Net Delta % <span class="sort-ind"></span></th><th onclick="sortTable('t3c2',8)">Status</th><th>Comments</th></tr></thead>
         <tbody>{% for r in l3.collected %}<tr data-partner="{{ r.partner }}" data-month="{{ r.collection_month }}" data-status="{{ r.net_status }}"><td>{{ r.collection_month }}</td><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td>{{ r.payout_month }}</td><td style="font-weight:600">{{ r.cycle or "—" }}</td><td class="num">${{ "{:,.2f}".format(r.billed) }}</td><td class="num">${{ "{:,.2f}".format(r.received) }}</td><td class="num" style="color:{{ 'var(--green-text)' if r.color == 'green' else 'var(--red-text)' }};font-weight:600">${{ "{:,.2f}".format(r.delta) }}</td><td class="num" style="color:{{ 'var(--red-text)' if r.net_delta < 0 else 'var(--green-text)' }};font-weight:700">${{ "{:,.2f}".format(r.net_delta) }}</td><td class="num" style="color:{{ 'var(--red-text)' if r.net_delta < 0 else 'var(--green-text)' }};font-weight:600">{{ "{:.2f}%".format(r.net_delta_pct) if r.net_delta_pct is not none else '—' }}</td><td>{% if r.product_signoff and r.product_signoff|lower == 'yes' %}<span style="color:var(--green-text);font-weight:700">{{ r.net_status }}</span> <span class="badge SUCCESS" style="font-size:9px">Signed Off</span>{% else %}<span style="color:{{ 'var(--red-text)' if r.net_delta < 0 else 'var(--green-text)' }}; font-weight:700">{{ r.net_status }}</span>{% endif %}</td><td style="font-size:11px;color:var(--muted);max-width:200px">{{ r.comments or '' }}</td></tr>{% endfor %}</tbody>
+        <tfoot><tr class="grand-total"><td colspan="4"><strong>Total</strong></td><td class="num" id="t3c2-tot-invoice">—</td><td class="num" id="t3c2-tot-received">—</td><td class="num" id="t3c2-tot-delta">—</td><td class="num" id="t3c2-tot-netdelta">—</td><td class="num" id="t3c2-tot-pct">—</td><td></td><td></td></tr></tfoot>
       </table></div></div>
 
     <div class="section"><h2><span class="section-icon" style="background:var(--amber-bg);color:var(--amber-text);">3</span> Yet to Receive</h2>
@@ -802,6 +803,29 @@ function applyFilter(tableId) {
     r.style.display = show ? '' : 'none';
   });
   if (tableId === 't1m') updateT1mTotals();
+  if (tableId === 't3c2') updateT3c2Totals();
+}
+function updateT3c2Totals() {
+  var tbl = document.getElementById('t3c2'); if (!tbl) return;
+  var invoice = 0, received = 0, delta = 0, netdelta = 0, n = 0;
+  tbl.querySelectorAll('tbody tr').forEach(function(r) {
+    if (r.style.display === 'none') return;
+    function parseDollar(idx) { var c = r.cells[idx]; if (!c) return 0; var v = parseFloat(c.textContent.replace(/[$,]/g,'')); return isNaN(v) ? 0 : v; }
+    invoice  += parseDollar(4); received += parseDollar(5);
+    delta    += parseDollar(6); netdelta += parseDollar(7); n++;
+  });
+  function fmt(v) { return '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function setCell(id, v, useSign) {
+    var el = document.getElementById(id); if (!el) return;
+    el.textContent = n ? fmt(v) : '—';
+    el.className = 'num' + (n && useSign ? (v >= 0 ? ' var-pos' : ' var-neg') : '');
+  }
+  setCell('t3c2-tot-invoice',  invoice,  false);
+  setCell('t3c2-tot-received', received, false);
+  setCell('t3c2-tot-delta',    delta,    true);
+  setCell('t3c2-tot-netdelta', netdelta, true);
+  var pctEl = document.getElementById('t3c2-tot-pct');
+  if (pctEl) { pctEl.textContent = (n && invoice) ? (netdelta / invoice * 100).toFixed(2) + '%' : '—'; pctEl.className = 'num' + (n && invoice ? (netdelta >= 0 ? ' var-pos' : ' var-neg') : ''); }
 }
 function updateT1mTotals() {
   var tbl = document.getElementById('t1m'); if (!tbl) return;
@@ -820,7 +844,7 @@ function updateT1mTotals() {
   document.getElementById('t1m-tot-pct').textContent = n ? pct : '—';
   if (document.getElementById('t1m-tot-pct') && n) document.getElementById('t1m-tot-pct').className = 'num' + (delta >= 0 ? ' var-pos' : ' var-neg');
 }
-window.addEventListener('load', updateT1mTotals);
+window.addEventListener('load', function() { updateT1mTotals(); updateT3c2Totals(); });
 function resetFilter(tableId) {
   var tbl = document.getElementById(tableId); if (!tbl) return;
   var fb = tbl.closest('.section').querySelector('.filter-bar'); if (!fb) return;
