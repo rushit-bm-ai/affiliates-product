@@ -115,18 +115,41 @@ body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
 #tab0:checked ~ .nav-bar label[for="tab0"],
 #tab1:checked ~ .nav-bar label[for="tab1"],
-#tab2:checked ~ .nav-bar label[for="tab2"] {
+#tab2:checked ~ .nav-bar label[for="tab2"],
+#tab3:checked ~ .nav-bar label[for="tab3"] {
   background:#0f172a; color:#fff; border-color:#0f172a; box-shadow:0 2px 8px rgba(15,23,42,.2); }
 html.dark #tab0:checked ~ .nav-bar label[for="tab0"],
 html.dark #tab1:checked ~ .nav-bar label[for="tab1"],
-html.dark #tab2:checked ~ .nav-bar label[for="tab2"] {
+html.dark #tab2:checked ~ .nav-bar label[for="tab2"],
+html.dark #tab3:checked ~ .nav-bar label[for="tab3"] {
   background:#3b82f6; color:#fff; border-color:#3b82f6; }
 
 /* ── Tab panels ── */
 .tab-panel { display:none; padding:28px 36px; }
 #tab0:checked ~ .tab-panel.p0,
 #tab1:checked ~ .tab-panel.p1,
-#tab2:checked ~ .tab-panel.p2 { display:block; }
+#tab2:checked ~ .tab-panel.p2,
+#tab3:checked ~ .tab-panel.p3 { display:block; }
+.tab-panel.p3 { padding:0; }
+
+/* ── Experiments sub-nav ── */
+#exp-tab1:checked ~ .sub-nav-bar label[for="exp-tab1"] { color:var(--blue); border-bottom-color:var(--blue); }
+#exp-tab1:checked ~ .sub-panel.ep1 { display:block; }
+
+/* ── C1B iframe ── */
+.c1b-toolbar { display:flex; align-items:center; gap:10px; padding:10px 20px; border-bottom:1px solid var(--border); background:var(--card); }
+.c1b-toolbar-title { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+.c1b-toolbar-spacer { flex:1; }
+.c1b-status-text { font-size:11px; color:var(--muted); }
+.c1b-refresh-btn { cursor:pointer; background:var(--bg); border:1.5px solid var(--border); color:var(--text); border-radius:8px; padding:6px 14px; font-size:11px; font-weight:700; font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:.15s; }
+.c1b-refresh-btn:hover:not(:disabled) { background:var(--border); }
+.c1b-refresh-btn:disabled { opacity:.5; cursor:default; }
+.c1b-refresh-btn.running { color:#0077cc; border-color:rgba(0,119,204,.4); }
+.c1b-refresh-btn.success { color:var(--green); border-color:rgba(22,163,74,.4); }
+.c1b-refresh-btn.error   { color:var(--red);   border-color:rgba(220,38,38,.4); }
+@keyframes c1b-spin { to { transform:rotate(360deg); } }
+.c1b-spin { display:inline-block; animation:c1b-spin 1s linear infinite; }
+.c1b-iframe { display:block; width:100%; height:calc(100vh - 178px); border:none; }
 /* Monitor partner filter bar */
 #mon-filter-bar { margin-bottom:20px; }
 .mon-cb-wrap { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
@@ -351,10 +374,12 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   <input type="radio" id="tab0" name="tabs" checked>
   <input type="radio" id="tab1" name="tabs">
   <input type="radio" id="tab2" name="tabs">
+  <input type="radio" id="tab3" name="tabs">
   <div class="nav-bar">
     <label for="tab0" class="nav-tab"><span class="tab-dot dot-grey"></span>About</label>
     <label for="tab1" class="nav-tab"><span class="tab-dot {% if l1 or l3 %}{% if (l1 and l1.overall_status == 'RED') or (l3 and l3.overall_status == 'RED') %}dot-red{% elif (l1 and l1.overall_status == 'AMBER') or (l3 and l3.overall_status == 'AMBER') %}dot-amber{% else %}dot-green{% endif %}{% else %}dot-grey{% endif %}"></span>Recon</label>
     <label for="tab2" class="nav-tab"><span class="tab-dot dot-grey"></span>Monitor</label>
+    <label for="tab3" class="nav-tab"><span class="tab-dot dot-blue"></span>Experiments</label>
   </div>
 
   <!-- ══ TAB 0 — About ══ -->
@@ -745,6 +770,22 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
   </div><!-- /mp2 Enrolls -->
 
   </div><!-- /p2 Monitor -->
+
+  <!-- ══ TAB 3 — Experiments ══ -->
+  <div class="tab-panel p3">
+    <input type="radio" id="exp-tab1" name="exp-tabs" checked>
+    <div class="sub-nav-bar">
+      <label for="exp-tab1"><span class="tab-dot dot-blue"></span>C1B</label>
+      <div style="flex:1"></div>
+      <div class="c1b-toolbar" style="border:none;padding:8px 20px 8px 0;background:transparent;">
+        <span class="c1b-status-text" id="c1bStatusText"></span>
+        <button class="c1b-refresh-btn" id="c1bRefreshBtn" onclick="triggerC1BRefresh()">&#x21bb; Refresh C1B</button>
+      </div>
+    </div>
+    <div class="sub-panel ep1">
+      <iframe class="c1b-iframe" id="c1bFrame" src="c1b_dashboard.html" title="C1B Experiment Dashboard"></iframe>
+    </div>
+  </div><!-- /p3 Experiments -->
 
 </div><!-- /tab-wrapper -->
 </div><!-- /body-wrap -->
@@ -1475,6 +1516,69 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       })
       .catch(function() {}); // refresh_server not running — button stays idle
+  });
+})();
+
+// ── C1B Refresh ───────────────────────────────────────────────────────────────
+(function() {
+  var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+  var pollTimer = null;
+
+  function btn()    { return document.getElementById('c1bRefreshBtn'); }
+  function status() { return document.getElementById('c1bStatusText'); }
+
+  function setState(state, label, msg) {
+    var b = btn(); if (!b) return;
+    b.className = 'c1b-refresh-btn' + (state ? ' ' + state : '');
+    b.disabled  = (state === 'running');
+    b.innerHTML = label;
+    if (status()) status().textContent = msg || '';
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(poll, 4000);
+  }
+
+  function poll() {
+    fetch(API + '/api/c1b-refresh-status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'running') return;
+        clearInterval(pollTimer);
+        if (d.status === 'success') {
+          setState('success', '&#x2713; Done', 'Updated ' + (d.finished_at || ''));
+          var f = document.getElementById('c1bFrame');
+          if (f) f.src = 'c1b_dashboard.html?t=' + Date.now();
+        } else {
+          setState('error', '&#x2715; Failed', d.error || '');
+        }
+      })
+      .catch(function() {});
+  }
+
+  window.triggerC1BRefresh = function() {
+    setState('running', '<span class="c1b-spin">&#x21bb;</span> Refreshing…', 'Running queries…');
+    fetch(API + '/api/refresh-c1b', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'started' || d.status === 'already_running') startPolling();
+      })
+      .catch(function() { setState('error', '&#x2715; Server unreachable', ''); });
+  };
+
+  window.addEventListener('load', function() {
+    fetch(API + '/api/c1b-refresh-status')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'running') {
+          setState('running', '<span class="c1b-spin">&#x21bb;</span> Refreshing…', 'Running queries…');
+          startPolling();
+        } else if (d.finished_at) {
+          if (status()) status().textContent = 'Last: ' + d.finished_at;
+        }
+      })
+      .catch(function() {});
   });
 })();
 </script>
