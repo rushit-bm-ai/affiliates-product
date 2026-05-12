@@ -398,6 +398,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
       <div class="tbl-wrap"><table id="t1m">
         <thead><tr><th onclick="sortTable('t1m',0)">Month <span class="sort-ind"></span></th><th onclick="sortTable('t1m',1)">Partner</th><th onclick="sortTable('t1m',2)">Cycle</th><th class="num" onclick="sortTable('t1m',3)">Invoice $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',4)">Reports $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',5)">Delta $ <span class="sort-ind"></span></th><th class="num" onclick="sortTable('t1m',6)">Delta % <span class="sort-ind"></span></th><th onclick="sortTable('t1m',7)">Status</th><th>Comments</th></tr></thead>
         <tbody>{% for r in l1.monthly_detail %}<tr data-partner="{{ r.partner }}" data-month="{{ r.payout_month }}" data-status="{{ r.monthly_status }}"><td>{{ r.payout_month }}</td><td><span class="partner-dot {{ r.partner }}"></span>{{ r.display_name }}</td><td>{{ r.cycle }}</td><td class="num">${{ "{:,.2f}".format(r.invoice_amount if r.invoice_amount is defined else r.reports_amount) }}</td><td class="num">${{ "{:,.2f}".format(r.reports_amount) }}</td><td class="num {{ 'var-pos' if r.delta >= 0 else 'var-neg' }}">${{ "{:,.2f}".format(r.delta) }}</td><td class="num {{ 'var-pos' if r.delta_pct is not none and r.delta_pct >= 0 else 'var-neg' }}">{{ "{:.2f}%".format(r.delta_pct) if r.delta_pct is not none else '—' }}</td><td><span class="badge {{ r.status }}">{{ r.monthly_status }}</span></td><td><input class="comment-input" type="text" placeholder="Add note..."></td></tr>{% endfor %}</tbody>
+        <tfoot><tr class="grand-total"><td colspan="3"><strong>Total</strong></td><td class="num" id="t1m-tot-invoice">—</td><td class="num" id="t1m-tot-reports">—</td><td class="num" id="t1m-tot-delta">—</td><td class="num" id="t1m-tot-pct">—</td><td></td><td></td></tr></tfoot>
       </table></div></div>
     <div class="section"><h2><span class="section-icon" style="background:var(--purple-bg);color:var(--purple-text);">2</span> Cumulative To-Date</h2>
       <div class="tbl-wrap"><table id="t1c">
@@ -800,7 +801,26 @@ function applyFilter(tableId) {
     if (statuses.length > 0 && rs && !statuses.includes(rs)) show = false;
     r.style.display = show ? '' : 'none';
   });
+  if (tableId === 't1m') updateT1mTotals();
 }
+function updateT1mTotals() {
+  var tbl = document.getElementById('t1m'); if (!tbl) return;
+  var invoice = 0, reports = 0, delta = 0, n = 0;
+  tbl.querySelectorAll('tbody tr').forEach(function(r) {
+    if (r.style.display === 'none') return;
+    function parseDollar(idx) { var c = r.cells[idx]; if (!c) return 0; var v = parseFloat(c.textContent.replace(/[$,]/g,'')); return isNaN(v) ? 0 : v; }
+    invoice += parseDollar(3); reports += parseDollar(4); delta += parseDollar(5); n++;
+  });
+  function fmt(v) { return '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  var pct = invoice ? (delta / invoice * 100).toFixed(2) + '%' : '—';
+  var dEl = document.getElementById('t1m-tot-delta');
+  document.getElementById('t1m-tot-invoice').textContent = n ? fmt(invoice) : '—';
+  document.getElementById('t1m-tot-reports').textContent = n ? fmt(reports) : '—';
+  if (dEl) { dEl.textContent = n ? fmt(delta) : '—'; dEl.className = 'num' + (n ? (delta >= 0 ? ' var-pos' : ' var-neg') : ''); }
+  document.getElementById('t1m-tot-pct').textContent = n ? pct : '—';
+  if (document.getElementById('t1m-tot-pct') && n) document.getElementById('t1m-tot-pct').className = 'num' + (delta >= 0 ? ' var-pos' : ' var-neg');
+}
+window.addEventListener('load', updateT1mTotals);
 function resetFilter(tableId) {
   var tbl = document.getElementById(tableId); if (!tbl) return;
   var fb = tbl.closest('.section').querySelector('.filter-bar'); if (!fb) return;
