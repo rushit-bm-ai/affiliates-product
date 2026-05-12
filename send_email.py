@@ -416,6 +416,62 @@ def _s2_table3(ytr_list):
 </table>"""
 
 
+def _s2_table2_variance(collected):
+    """Top 5 HIGH→MEDIUM variance entries from collected cash, with status and comments."""
+    order = {"high": 0, "medium": 1}
+    rows = [r for r in collected if (r.get("status") or "").lower() in order]
+    rows = sorted(rows, key=lambda r: (order[(r.get("status") or "").lower()],
+                                       -(abs(r.get("delta") or 0))))
+    rows = rows[:5]
+
+    if not rows:
+        return '<div style="color:#5c626e;font-size:11.5px;font-style:italic">No High/Medium variance entries found.</div>'
+
+    rows_html = ""
+    for i, r in enumerate(rows):
+        bg = f' style="background:#fafcfa"' if i % 2 else ""
+        delta = r.get("delta") or 0
+        comment = r.get("comments") or "—"
+        signoff = r.get("product_signoff")
+        signoff_cell = (
+            f'<span style="background:#dcfce7;color:#0f4625;padding:3px 9px;border-radius:20px;'
+            f'font-size:9.5px;font-weight:700">&#10003; {signoff}</span>'
+            if signoff else
+            '<span style="color:#9ca3af;font-size:10.5px">—</span>'
+        )
+        rows_html += (
+            f'<tr{bg}>'
+            f'<td style="{TD}">{_dot(r.get("partner",""))}<strong>{r.get("display_name","—")}</strong></td>'
+            f'<td style="{TD}">{r.get("payout_month","—")}</td>'
+            f'<td style="{TDC}"><span style="font-size:9.5px;font-weight:700;background:#e0f2fe;color:#0369a1;padding:2px 7px;border-radius:8px">{r.get("cycle","—")}</span></td>'
+            f'<td style="{TDR}">{_f0(r.get("billed",0))}</td>'
+            f'<td style="{TDR};color:#0f4625;font-weight:700">{_f0(r.get("received",0))}</td>'
+            f'<td style="{TDR};color:#b91c1c;font-weight:800">{"+" if delta>0 else ""}{_f0(delta)}</td>'
+            f'<td style="{TDC}">{_badge((r.get("status") or "").upper())}</td>'
+            f'<td style="{TDC}">{signoff_cell}</td>'
+            f'<td style="{TD};font-size:10.5px;color:#5c626e;max-width:160px">{comment}</td>'
+            f'</tr>'
+        )
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #fecaca;border-radius:14px;overflow:hidden">
+  <tr style="background:#fef2f2">
+    <th style="{TH};color:#b91c1c;text-align:left">Partner</th>
+    <th style="{TH};color:#b91c1c;text-align:left">Payout Month</th>
+    <th style="{TH};color:#b91c1c;text-align:center">Cycle</th>
+    <th style="{TH};color:#b91c1c;text-align:right">Billed</th>
+    <th style="{TH};color:#b91c1c;text-align:right">Received</th>
+    <th style="{TH};color:#b91c1c;text-align:right">Delta</th>
+    <th style="{TH};color:#b91c1c;text-align:center">Status</th>
+    <th style="{TH};color:#b91c1c;text-align:center">Sign Off</th>
+    <th style="{TH};color:#b91c1c;text-align:left">Comments</th>
+  </tr>
+  {rows_html}
+</table>
+<div style="margin-top:8px;padding:8px 12px;background:#fef2f2;border-radius:8px;border-left:3px solid #ef4444;font-size:9.5px;color:#b91c1c;line-height:1.6">
+  Showing top 5 entries ranked <strong>High → Medium</strong> by variance severity
+</div>"""
+
+
 # ── Section divider ───────────────────────────────────────────────────────────
 def _divider(num, title, subtitle, accent):
     return f"""
@@ -482,6 +538,7 @@ def generate_email_html(l3, l1=None, changes=None, l1_changes=None, stale=False,
     l3_gt       = l3.get("grand_total", {})
     ytr_list    = l3.get("yet_to_receive", [])
     cum_list    = l3.get("cumulative", [])
+    collected   = l3.get("collected", [])
     new_cash    = changes.get("new_cash", [])
     l1_gt       = (l1 or {}).get("grand_total", {})
     l1_detail   = (l1 or {}).get("monthly_detail", [])
@@ -589,6 +646,10 @@ def generate_email_html(l3, l1=None, changes=None, l1_changes=None, stale=False,
   {_sub("Pending Collections", "Invoices raised — cash not yet received", "#f59e0b",
         badge=f"{len(ytr_list)} pending")}
   {_content(_s2_table3(ytr_list))}
+
+  {_sub("Top Variance Alerts", "Cash collections — High &amp; Medium entries ranked by severity · Top 5", "#ef4444",
+        badge="High → Medium")}
+  {_content(_s2_table2_variance(collected))}
 
   <!-- CTA -->
   <tr><td style="padding:28px 36px 32px;text-align:center">
