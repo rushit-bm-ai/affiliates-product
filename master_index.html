@@ -202,6 +202,71 @@
       font-size: 10.5px;
       color: #5c7a62;
     }
+
+    /* ── Experiments tab: full-width override ── */
+    .body.full-width {
+      max-width: none;
+      padding: 24px 0 0;
+    }
+    .body.full-width .sub-tabs {
+      padding: 0 24px;
+      margin-bottom: 16px;
+    }
+    .body.full-width .footer { display: none; }
+
+    /* ── C1B iframe panel ── */
+    .c1b-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 24px 14px;
+    }
+    .c1b-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #5c7a62;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .c1b-spacer { flex: 1; }
+    .c1b-status {
+      font-size: 11px;
+      color: #5c7a62;
+      font-weight: 600;
+    }
+    .refresh-btn {
+      cursor: pointer;
+      background: rgba(15,70,37,.08);
+      border: 1.5px solid #d1e8d8;
+      color: #0f4625;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s, color .15s;
+    }
+    .refresh-btn:hover:not(:disabled) { background: rgba(15,70,37,.14); }
+    .refresh-btn:disabled { opacity: .5; cursor: default; }
+    .refresh-btn.running { color: #0077cc; border-color: rgba(0,119,204,.35); background: rgba(0,119,204,.06); }
+    .refresh-btn.success { color: #166534; border-color: rgba(22,101,52,.35); background: rgba(22,101,52,.06); }
+    .refresh-btn.error   { color: #9b1c1c; border-color: rgba(155,28,28,.35); background: rgba(155,28,28,.06); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+
+    .c1b-iframe-wrap {
+      width: 100%;
+      border-top: 1px solid #d1e8d8;
+    }
+    .c1b-iframe-wrap iframe {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 178px);
+      border: none;
+    }
   </style>
 </head>
 <body>
@@ -245,18 +310,14 @@
 
       <!-- C1B Sub-tab -->
       <div id="subtab-c1b" class="tab-panel active">
-        <div class="section-label">C1B Experiments</div>
-        <div class="card" style="cursor:default;">
-          <div class="card-icon">🧪</div>
-          <div class="card-body">
-            <div class="card-title">C1B Analytics</div>
-            <div class="card-desc">Experiment tracking and analysis for C1B. Cohort performance, funnel metrics, and variant comparisons.</div>
-            <div class="card-tags">
-              <span class="tag">C1B</span>
-              <span class="tag">Experiments</span>
-              <span class="tag">Analytics</span>
-            </div>
-          </div>
+        <div class="c1b-toolbar">
+          <span class="c1b-title">C1B · Experiment Dashboard</span>
+          <span class="c1b-spacer"></span>
+          <span class="c1b-status" id="c1bStatusText"></span>
+          <button class="refresh-btn" id="c1bRefreshBtn" onclick="triggerC1BRefresh()">&#x21bb; Refresh</button>
+        </div>
+        <div class="c1b-iframe-wrap">
+          <iframe id="c1bFrame" src="c1b_dashboard.html" title="C1B Dashboard"></iframe>
         </div>
       </div>
 
@@ -274,6 +335,8 @@
       el.classList.add('active');
       document.querySelectorAll('#tab-recon, #tab-experiments').forEach(p => p.classList.remove('active'));
       document.getElementById('tab-' + name).classList.add('active');
+      // Full-width layout for experiments tab
+      document.querySelector('.body').classList.toggle('full-width', name === 'experiments');
     }
 
     function switchSubTab(name, el) {
@@ -282,6 +345,71 @@
       el.closest('.tab-panel').querySelectorAll('[id^="subtab-"]').forEach(p => p.classList.remove('active'));
       document.getElementById('subtab-' + name).classList.add('active');
     }
+
+    // ── C1B Refresh ──────────────────────────────────────────────────────────
+    (function() {
+      var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+      var pollTimer = null;
+
+      function btn()    { return document.getElementById('c1bRefreshBtn'); }
+      function status() { return document.getElementById('c1bStatusText'); }
+
+      function setState(state, label, statusMsg) {
+        var b = btn();
+        b.className = 'refresh-btn' + (state ? ' ' + state : '');
+        b.disabled  = (state === 'running');
+        b.innerHTML = label;
+        status().textContent = statusMsg || '';
+      }
+
+      function startPolling() {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(poll, 4000);
+      }
+
+      function poll() {
+        fetch(API + '/api/c1b-refresh-status')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.status === 'running') return;
+            clearInterval(pollTimer);
+            if (d.status === 'success') {
+              setState('success', '&#x2713; Done', 'Updated ' + (d.finished_at || ''));
+              document.getElementById('c1bFrame').src = 'c1b_dashboard.html?t=' + Date.now();
+            } else {
+              setState('error', '&#x2715; Failed', d.error || '');
+            }
+          })
+          .catch(function() { /* keep polling */ });
+      }
+
+      window.triggerC1BRefresh = function() {
+        setState('running', '<span class="spin">&#x21bb;</span> Refreshing…', 'Running queries…');
+        fetch(API + '/api/refresh-c1b', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.status === 'started' || d.status === 'already_running') startPolling();
+          })
+          .catch(function() {
+            setState('error', '&#x2715; Server unreachable', '');
+          });
+      };
+
+      // On load: resume if already running
+      window.addEventListener('load', function() {
+        fetch(API + '/api/c1b-refresh-status')
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.status === 'running') {
+              setState('running', '<span class="spin">&#x21bb;</span> Refreshing…', 'Running queries…');
+              startPolling();
+            } else if (d.finished_at) {
+              status().textContent = 'Last refresh: ' + d.finished_at;
+            }
+          })
+          .catch(function() {});
+      });
+    })();
   </script>
 
 </body>

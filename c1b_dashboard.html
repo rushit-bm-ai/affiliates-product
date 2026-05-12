@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C1B Impact Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --primary:#1e3a5f; --secondary:#2563eb; --success:#16a34a;
+  --danger:#dc2626;  --warn:#d97706;      --neutral:#6b7280;
+  --bg:#f8fafc;      --card:#ffffff;      --border:#e2e8f0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:#1e293b;font-size:14px}
+/* Header */
+.hdr{background:var(--primary);color:#fff;padding:18px 32px;display:flex;justify-content:space-between;align-items:center}
+.hdr h1{font-size:18px;font-weight:700}
+.hdr p{font-size:12px;opacity:.7;margin-top:3px}
+.hdr .ref{font-size:11px;opacity:.6;text-align:right}
+/* Funnel strip */
+.funnel-row{display:flex;align-items:center;gap:0;padding:20px 32px 0;flex-wrap:nowrap;overflow-x:auto}
+.funnel-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:140px;flex:1;text-align:center}
+.fc-label{font-size:10px;color:var(--neutral);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.fc-value{font-size:24px;font-weight:700;color:#1e293b}
+.fc-rate{font-size:11px;color:var(--neutral);margin-top:4px}
+.fc-rate strong{color:var(--secondary)}
+.funnel-arrow{font-size:28px;color:#cbd5e1;padding:0 8px;flex-shrink:0;line-height:1}
+/* Nav */
+.nav-wrap{padding:20px 32px 0}
+.main-tabs{display:flex;gap:2px;border-bottom:2px solid var(--border)}
+.main-tab{padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:var(--neutral);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.main-tab.active{color:var(--secondary);border-bottom-color:var(--secondary)}
+.main-tab:hover:not(.active){color:#334155}
+/* Tab content */
+.tab-pane{display:none;padding:0 32px 32px}
+.tab-pane.active{display:block}
+/* Sub-tabs */
+.sub-tabs{display:flex;gap:4px;padding:18px 0 0;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.sub-tab{padding:7px 14px;border:1px solid var(--border);border-bottom:none;background:var(--bg);cursor:pointer;font-size:12px;color:var(--neutral);border-radius:6px 6px 0 0}
+.sub-tab.active{background:var(--card);color:var(--secondary);font-weight:600}
+.sub-tab:hover:not(.active){background:#f1f5f9}
+.subtab-pane{display:none}
+.subtab-pane.active{display:block}
+/* Cards & grid */
+.view-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.view-grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px}
+.card h3{font-size:11px;font-weight:600;color:var(--neutral);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+.chart-wrap{position:relative}
+/* Table */
+.tbl-wrap{overflow-x:auto;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:7px 10px;background:#f1f5f9;color:var(--neutral);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+.positive{color:var(--success);font-weight:600}
+.negative{color:var(--danger);font-weight:600}
+.neutral-val{color:var(--neutral)}
+/* Utility */
+.card.full{grid-column:1/-1}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <h1>C1B Experiment Impact Dashboard</h1>
+    <p>Credit One Bank · treatment7 (Test) vs treatment3 (Control) · Experiment start: 2026-04-09</p>
+  </div>
+  <div class="ref">Last refreshed<br>May 11, 2026</div>
+</div>
+
+<div class="funnel-row"><div class="funnel-card">
+  <div class="fc-label">Test Enrolls</div>
+  <div class="fc-value">0</div>
+  <div class="fc-rate">of total: <strong>100%</strong></div>
+</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
+  <div class="fc-label">Eligible Users</div>
+  <div class="fc-value">3,112</div>
+  <div class="fc-rate">of enrolls: <strong>—</strong></div>
+</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
+  <div class="fc-label">Offers Available</div>
+  <div class="fc-value">509</div>
+  <div class="fc-rate">of eligible: <strong>16.36%</strong></div>
+</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
+  <div class="fc-label">Impressions Shown</div>
+  <div class="fc-value">425</div>
+  <div class="fc-rate">of offers: <strong>83.50%</strong></div>
+</div><div class="funnel-arrow">&#8250;</div><div class="funnel-card">
+  <div class="fc-label">Clicks</div>
+  <div class="fc-value">93</div>
+  <div class="fc-rate">of impressions: <strong>21.88%</strong></div>
+</div></div>
+
+<div class="nav-wrap">
+<div class="main-tabs">
+  <button class="main-tab active" onclick="showTab('l0',this)">Report Card</button>
+  <button class="main-tab"        onclick="showTab('l1',this)">Layer 1 · Operational Health</button>
+  <button class="main-tab"        onclick="showTab('l2',this)">Layer 2 · Revenue Impact</button>
+</div>
+</div>
+
+<!-- Layer 0 — Report Card -->
+<div id="tab-l0" class="tab-pane active">
+
+<div class="view-grid">
+<div class="card"><h3>Funnel Volume — Week over Week</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_1"></canvas></div></div>
+<div class="card"><h3>Stage Conversion Rates — Week over Week (%)</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_2"></canvas></div></div>
+</div>
+<div class="card full"><h3>Report Card Table</h3><div class="tbl-wrap"><table><thead><tr><th>Week</th><th>Enrolls</th><th>T7</th><th>T7%</th><th>Eligible</th><th>Net Elig%</th><th>API Called</th><th>API Call%</th><th>API Success</th><th>API Succ%</th><th>Impressions</th><th>Imp%</th><th>Clicks</th><th>CTR%</th></tr></thead><tbody><tr><td>2026-05-04</td><td>29142</td><td>7209</td><td>24.74%</td><td>2118</td><td>29.38%</td><td>1973</td><td>93.15%</td><td class="positive">350</td><td class="positive">17.74%</td><td>302</td><td>86.29%</td><td>58</td><td>19.21%</td></tr><tr><td>2026-04-27</td><td>27741</td><td>3653</td><td>13.17%</td><td>849</td><td>23.24%</td><td>801</td><td>94.35%</td><td class="positive">140</td><td class="positive">17.48%</td><td>108</td><td>77.14%</td><td>31</td><td>28.70%</td></tr><tr><td>2026-04-20</td><td>27558</td><td>467</td><td>1.69%</td><td>118</td><td>25.27%</td><td>110</td><td>93.22%</td><td class="positive">16</td><td class="positive">14.55%</td><td>14</td><td>87.50%</td><td>4</td><td>28.57%</td></tr><tr><td>2026-04-13</td><td>24494</td><td>63</td><td>0.26%</td><td>14</td><td>22.22%</td><td>13</td><td>92.86%</td><td class="positive">1</td><td class="positive">7.69%</td><td>1</td><td>100.00%</td><td>0</td><td>0.00%</td></tr><tr><td>2026-04-06</td><td>13883</td><td>45</td><td>0.32%</td><td>13</td><td>28.89%</td><td>12</td><td>92.31%</td><td class="positive">2</td><td class="positive">16.67%</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_1').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": ["04-06", "04-13", "04-20", "04-27", "05-04"], "datasets": [{"label": "Enrolls", "data": [13883, 24494, 27558, 27741, 29142], "borderColor": "#94a3b8", "backgroundColor": "transparent", "tension": 0.3}, {"label": "T7", "data": [45, 63, 467, 3653, 7209], "borderColor": "#3b82f6", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Eligible", "data": [13, 14, 118, 849, 2118], "borderColor": "#8b5cf6", "backgroundColor": "transparent", "tension": 0.3}, {"label": "API Called", "data": [12, 13, 110, 801, 1973], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3}, {"label": "API Success", "data": [2, 1, 16, 140, 350], "borderColor": "#22c55e", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Impressions", "data": [0, 1, 14, 108, 302], "borderColor": "#06b6d4", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Clicks", "data": [0, 0, 4, 31, 58], "borderColor": "#f43f5e", "backgroundColor": "transparent", "tension": 0.3}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Funnel volume \u2014 week over week", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_2').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": ["04-06", "04-13", "04-20", "04-27", "05-04"], "datasets": [{"label": "T7 % of Enrolls", "data": [0.32, 0.26, 1.69, 13.17, 24.74], "borderColor": "#3b82f6", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Net Eligible % (of T7)", "data": [28.89, 22.22, 25.27, 23.24, 29.38], "borderColor": "#8b5cf6", "backgroundColor": "transparent", "tension": 0.3}, {"label": "API Called % (of Elig)", "data": [92.31, 92.86, 93.22, 94.35, 93.15], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3}, {"label": "API Success %", "data": [16.67, 7.69, 14.55, 17.48, 17.74], "borderColor": "#22c55e", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Imp Rate % (of Succ)", "data": [0.0, 100.0, 87.5, 77.14, 86.29], "borderColor": "#06b6d4", "backgroundColor": "transparent", "tension": 0.3}, {"label": "CTR %", "data": [0.0, 0.0, 28.57, 28.7, 19.21], "borderColor": "#f43f5e", "backgroundColor": "transparent", "tension": 0.3}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Stage conversion rates \u2014 week over week (%)", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+</div>
+
+<!-- Layer 1 -->
+<div id="tab-l1" class="tab-pane">
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="showSub('l1','1a',this)">1A · Eligibility Funnel</button>
+    <button class="sub-tab"        onclick="showSub('l1','1b',this)">1B · API Health</button>
+    <button class="sub-tab"        onclick="showSub('l1','1c',this)">1C · Impression Delivery</button>
+    <button class="sub-tab"        onclick="showSub('l1','1d',this)">1D · Assignment Balance</button>
+    <button class="sub-tab"        onclick="showSub('l1','1e',this)">1E · User Segment Overlap</button>
+  </div>
+  <div id="l1-1a" class="subtab-pane active">
+<div class="view-grid">
+<div class="card"><h3>Step-over-Step Pass Rates</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_3"></canvas></div></div>
+<div class="card"><h3>Funnel Volume by Week</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_4"></canvas></div></div>
+</div>
+<div class="card full"><h3>Funnel Detail Table</h3><div class="tbl-wrap"><table><thead><tr><th>Week</th><th>Enrolls</th><th>T7</th><th>T7%</th><th>Debt OK</th><th>Debt%</th><th>CS OK</th><th>CS%</th><th>KYC OK</th><th>KYC%</th><th>Interest OK</th><th>Interest(CC)%</th><th>Net Eligible%</th></tr></thead><tbody><tr><td>2026-05-04</td><td>29142</td><td>7209</td><td>24.74%</td><td>6142</td><td>85.20%</td><td>4732</td><td>77.04%</td><td>4448</td><td>94.00%</td><td>2118</td><td>47.62%</td><td>29.38%</td></tr><tr><td>2026-04-27</td><td>27741</td><td>3653</td><td>13.17%</td><td>3092</td><td>84.64%</td><td>2351</td><td>76.03%</td><td>2212</td><td>94.09%</td><td>849</td><td>38.38%</td><td>23.24%</td></tr><tr><td>2026-04-20</td><td>27558</td><td>467</td><td>1.69%</td><td>400</td><td>85.65%</td><td>296</td><td>74.00%</td><td>285</td><td>96.28%</td><td>118</td><td>41.40%</td><td>25.27%</td></tr><tr><td>2026-04-13</td><td>24494</td><td>63</td><td>0.26%</td><td>57</td><td>90.48%</td><td>40</td><td>70.18%</td><td>38</td><td>95.00%</td><td>14</td><td>36.84%</td><td>22.22%</td></tr><tr><td>2026-04-06</td><td>13883</td><td>45</td><td>0.32%</td><td>40</td><td>88.89%</td><td>27</td><td>67.50%</td><td>23</td><td>85.19%</td><td>13</td><td>56.52%</td><td>28.89%</td></tr></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_3').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": ["05-04", "04-27", "04-20", "04-13", "04-06"], "datasets": [{"label": "Treatment7 %", "data": [24.74, 13.17, 1.69, 0.26, 0.32], "borderColor": "#2563eb", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Debt pass %", "data": [85.2, 84.64, 85.65, 90.48, 88.89], "borderColor": "#3b82f6", "backgroundColor": "transparent", "tension": 0.3}, {"label": "CS \u2265540 pass %", "data": [77.04, 76.03, 74.0, 70.18, 67.5], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3}, {"label": "KYC pass %", "data": [94.0, 94.09, 96.28, 95.0, 85.19], "borderColor": "#8b5cf6", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Interest (CC) %", "data": [47.62, 38.38, 41.4, 36.84, 56.52], "borderColor": "#dc2626", "backgroundColor": "transparent", "tension": 0.3}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Step-over-step pass rates (treatment7 users)", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_4').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": ["05-04", "04-27", "04-20", "04-13", "04-06"], "datasets": [{"label": "Treatment7", "data": [7209, 3653, 467, 63, 45], "backgroundColor": "#93c5fd"}, {"label": "Debt pass", "data": [6142, 3092, 400, 57, 40], "backgroundColor": "#60a5fa"}, {"label": "CS pass", "data": [4732, 2351, 296, 40, 27], "backgroundColor": "#3b82f6"}, {"label": "KYC pass", "data": [4448, 2212, 285, 38, 23], "backgroundColor": "#2563eb"}, {"label": "Eligible", "data": [2118, 849, 118, 14, 13], "backgroundColor": "#1d4ed8"}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Funnel count by week", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": false, "ticks": {"font": {"size": 10}}}, "y": {"stacked": false, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script></div>
+  <div id="l1-1b" class="subtab-pane">
+<div class="view-grid">
+<div class="card"><h3>API Status Stack by Week</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_5"></canvas></div></div>
+<div class="card"><h3>API Rates Over Time</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_6"></canvas></div></div>
+</div>
+<div class="card full"><h3>API Health Table</h3><div class="tbl-wrap"><table><thead><tr><th>Week</th><th>Total API Calls</th><th>Success</th><th>Succ%</th><th>Failure</th><th>Fail%</th></tr></thead><tbody><tr><td>2026-05-04</td><td>1973</td><td class="positive">350</td><td class="positive">17.74%</td><td class="negative">1623</td><td class="negative">82.26%</td></tr><tr><td>2026-04-27</td><td>801</td><td class="positive">140</td><td class="positive">17.48%</td><td class="negative">661</td><td class="negative">82.52%</td></tr><tr><td>2026-04-20</td><td>110</td><td class="positive">16</td><td class="positive">14.55%</td><td class="negative">94</td><td class="negative">85.45%</td></tr><tr><td>2026-04-13</td><td>13</td><td class="positive">1</td><td class="positive">7.69%</td><td class="negative">12</td><td class="negative">92.31%</td></tr><tr><td>2026-04-06</td><td>12</td><td class="positive">2</td><td class="positive">16.67%</td><td class="negative">10</td><td class="negative">83.33%</td></tr></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_5').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": ["05-04", "04-27", "04-20", "04-13", "04-06"], "datasets": [{"label": "Success", "data": [350, 140, 16, 1, 2], "backgroundColor": "#16a34a"}, {"label": "Failure", "data": [1623, 661, 94, 12, 10], "backgroundColor": "#f59e0b"}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "API calls: Success vs Failure per week", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": true, "ticks": {"font": {"size": 10}}}, "y": {"stacked": true, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_6').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": ["05-04", "04-27", "04-20", "04-13", "04-06"], "datasets": [{"label": "Success rate %", "data": [17.74, 17.48, 14.55, 7.69, 16.67], "borderColor": "#16a34a", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Failure rate %", "data": [82.26, 82.52, 85.45, 92.31, 83.33], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "API success vs failure rate over time (%)", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script></div>
+  <div id="l1-1c" class="subtab-pane">
+<div class="view-grid">
+<div class="card"><h3>Delivery Rate & CTR</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_7"></canvas></div></div>
+<div class="card"><h3>Offer → Impression → Click Volume</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_8"></canvas></div></div>
+</div>
+<div class="card full"><h3>Impression Delivery Table</h3><div class="tbl-wrap"><table><thead><tr><th>Week</th><th>T7 Enrolls</th><th>Users with Offers</th><th>Users with Impression</th><th>Delivery Rate</th><th>Users Clicked</th><th>CTR</th></tr></thead><tbody><tr><td>2026-05-04</td><td>7209</td><td>350</td><td>302</td><td>86.29%</td><td>58</td><td>19.21%</td></tr><tr><td>2026-04-27</td><td>3653</td><td>140</td><td>108</td><td>77.14%</td><td>31</td><td>28.70%</td></tr><tr><td>2026-04-20</td><td>467</td><td>16</td><td>14</td><td>87.50%</td><td>4</td><td>28.57%</td></tr><tr><td>2026-04-13</td><td>63</td><td>1</td><td>1</td><td>100.00%</td><td>0</td><td>0.00%</td></tr><tr><td>2026-04-06</td><td>45</td><td>2</td><td>0</td><td>0.00%</td><td>0</td><td>0.00%</td></tr></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_7').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": ["05-04", "04-27", "04-20", "04-13", "04-06"], "datasets": [{"label": "Delivery rate % (imps/offers)", "data": [86.29, 77.14, 87.5, 100.0, 0.0], "borderColor": "#2563eb", "backgroundColor": "transparent", "tension": 0.3}, {"label": "CTR % (clicks/imps)", "data": [19.21, 28.7, 28.57, 0.0, 0.0], "borderColor": "#16a34a", "backgroundColor": "transparent", "tension": 0.3}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Delivery rate & CTR over time", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_8').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": ["05-04", "04-27", "04-20", "04-13", "04-06"], "datasets": [{"label": "Users with offers", "data": [350, 140, 16, 1, 2], "backgroundColor": "#93c5fd"}, {"label": "Users with impression", "data": [302, 108, 14, 1, 0], "backgroundColor": "#2563eb"}, {"label": "Users clicked", "data": [58, 31, 4, 0, 0], "backgroundColor": "#16a34a"}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Offer \u2192 Impression \u2192 Click funnel by week", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": false, "ticks": {"font": {"size": 10}}}, "y": {"stacked": false, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script></div>
+  <div id="l1-1d" class="subtab-pane">
+<div class="view-grid">
+<div class="card"><h3>Weekly Enroll Split by Treatment</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_9"></canvas></div></div>
+<div class="card"><h3>User Quality Proxy (Test vs Control)</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_10"></canvas></div></div>
+</div>
+<div class="card full"><h3>Assignment Balance Table</h3><div class="tbl-wrap"><table><thead><tr><th>Week</th><th>Test Enrolls</th><th>Ctrl Enrolls</th><th>T7 Share%</th><th>Test Debt≤3k%</th><th>Ctrl Debt≤3k%</th><th>Test CS≥540%</th><th>Ctrl CS≥540%</th></tr></thead><tbody></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_9').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": [], "datasets": [{"label": "Test (T7) enrolls", "data": [], "backgroundColor": "#2563eb"}, {"label": "Control (T3) enrolls", "data": [], "backgroundColor": "#9ca3af"}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Weekly enroll count per treatment", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": false, "ticks": {"font": {"size": 10}}}, "y": {"stacked": false, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_10').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": [], "datasets": [{"label": "Test debt\u22643k %", "data": [], "borderColor": "#2563eb", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Ctrl debt\u22643k %", "data": [], "borderColor": "#9ca3af", "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4, 4]}, {"label": "Test CS\u2265540 %", "data": [], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3}, {"label": "Ctrl CS\u2265540 %", "data": [], "borderColor": "#d97706", "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4, 4]}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "User quality proxy: debt & credit score rates by treatment", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script></div>
+  <div id="l1-1e" class="subtab-pane">
+<div class="view-grid">
+<div class="card"><h3>Segment Share: Control vs Test</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_11"></canvas></div></div>
+</div>
+<div class="card full"><h3>User Segment Overlap Table</h3><div class="tbl-wrap"><table><thead><tr><th>Segment</th><th>Control Count</th><th>Control %</th><th>Test Count</th><th>Test %</th><th>Δ %</th></tr></thead><tbody></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_11').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": [], "datasets": [{"label": "Control (T3)", "data": [], "backgroundColor": "#9ca3af"}, {"label": "Test (T7)", "data": [], "backgroundColor": "#2563eb"}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Segment share % \u2014 Control vs Test", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": false, "ticks": {"font": {"size": 10}}}, "y": {"stacked": false, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script></div>
+</div>
+
+<!-- Layer 2 -->
+<div id="tab-l2" class="tab-pane">
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="showSub('l2','2a',this)">2A · RPU</button>
+  </div>
+  <div id="l2-2a" class="subtab-pane active">
+<div class="view-grid">
+<div class="card"><h3>Weekly RPU: Test vs Control</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_12"></canvas></div></div>
+<div class="card"><h3>RPU Composition: Test (Loan + C1B) vs Control</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_13"></canvas></div></div>
+</div>
+<div class="card full"><h3>Weekly RPU Delta (Test − Control)</h3><div class="chart-wrap" style="height:280px"><canvas id="chart_14"></canvas></div></div>
+<div class="card full"><h3>RPU Weekly Detail</h3><div class="tbl-wrap"><table><thead><tr><th>Week</th><th>Test Enrolls</th><th>Ctrl Enrolls</th><th>Test Loan RPU</th><th>Test C1B RPU</th><th>Test Total RPU</th><th>Ctrl RPU</th><th>Δ RPU</th><th>Lift %</th></tr></thead><tbody></tbody></table></div></div>
+
+<script>
+(function(){
+  var ctx = document.getElementById('chart_12').getContext('2d');
+  new Chart(ctx, {"type": "line", "data": {"labels": [], "datasets": [{"label": "Test RPU", "data": [], "borderColor": "#2563eb", "backgroundColor": "transparent", "tension": 0.3, "pointRadius": 4}, {"label": "Control RPU", "data": [], "borderColor": "#9ca3af", "backgroundColor": "transparent", "tension": 0.3, "pointRadius": 4}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Weekly RPU: Test vs Control", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_13').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": [], "datasets": [{"label": "Test: Loan RPU", "data": [], "backgroundColor": "#60a5fa", "stack": "test"}, {"label": "Test: C1B RPU", "data": [], "backgroundColor": "#16a34a", "stack": "test"}, {"label": "Control: Loan RPU", "data": [], "backgroundColor": "#9ca3af", "stack": "ctrl"}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "RPU composition: Test (Loan + C1B) vs Control", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": true, "ticks": {"font": {"size": 10}}}, "y": {"stacked": true, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script>
+<script>
+(function(){
+  var ctx = document.getElementById('chart_14').getContext('2d');
+  new Chart(ctx, {"type": "bar", "data": {"labels": [], "datasets": [{"label": "\u0394 RPU (Test \u2212 Control)", "data": [], "backgroundColor": []}]}, "options": {"responsive": true, "maintainAspectRatio": false, "plugins": {"title": {"display": true, "text": "Weekly RPU Delta (Test \u2212 Control)", "font": {"size": 12}}, "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}}, "scales": {"x": {"stacked": false, "ticks": {"font": {"size": 10}}}, "y": {"stacked": false, "ticks": {"font": {"size": 10}}}}}});
+})();
+</script></div>
+</div>
+
+
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+function showSub(layer, sub, btn) {
+  var parent = document.getElementById('tab-' + layer);
+  parent.querySelectorAll('.subtab-pane').forEach(el => el.classList.remove('active'));
+  parent.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(layer + '-' + sub).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
