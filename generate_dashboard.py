@@ -149,7 +149,7 @@ html.dark #tab3:checked ~ .nav-bar label[for="tab3"] {
 .c1b-refresh-btn.error   { color:var(--red);   border-color:rgba(220,38,38,.4); }
 @keyframes c1b-spin { to { transform:rotate(360deg); } }
 .c1b-spin { display:inline-block; animation:c1b-spin 1s linear infinite; }
-.c1b-iframe { display:block; width:100%; height:calc(100vh - 178px); border:none; }
+.c1b-iframe { display:block; width:100%; min-height:600px; border:none; }
 /* Monitor partner filter bar */
 #mon-filter-bar { margin-bottom:20px; }
 .mon-cb-wrap { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
@@ -1518,6 +1518,14 @@ document.addEventListener('DOMContentLoaded', function() {
       .catch(function() {}); // refresh_server not running — button stays idle
   });
 })();
+
+// ── C1B iframe auto-resize ────────────────────────────────────────────────────
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'c1b-height') {
+    var f = document.getElementById('c1bFrame');
+    if (f) f.style.height = (e.data.h + 8) + 'px';
+  }
+});
 
 // ── C1B Refresh ───────────────────────────────────────────────────────────────
 (function() {
