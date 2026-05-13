@@ -335,6 +335,53 @@ GROUP BY 1, 2
 ORDER BY enroll_week DESC, treatment
 """.replace("{exp_start}", EXP_START)
 
+# 1D (daily) — Assignment balance grouped by enroll date for day-view.
+SQL_1D_BALANCE_DAILY = """
+WITH
+user_treatments AS (
+    SELECT
+        uc.bright_uid,
+        uc.bm_user_id,
+        MAX(json_extract_scalar(usm.split_session_data,
+                '$.growth_survey_experiment.treatment')) AS treatment,
+        DATE(uc.first_enrolled_on)                       AS enroll_date
+    FROM iceberg_db.meta_cube__user_current_state AS uc
+    INNER JOIN iceberg_db.brightmoney_backend_master_2__public__bm_users_userstatemachinesessiondata__base AS usm
+        ON usm.user_id = uc.bm_user_id
+    WHERE json_extract_scalar(usm.split_session_data,
+              '$.growth_survey_experiment.treatment') IN ('treatment3','treatment7')
+      AND DATE(uc.first_enrolled_on) >= DATE '{exp_start}'
+    GROUP BY uc.bright_uid, uc.bm_user_id, DATE(uc.first_enrolled_on)
+),
+latest_debt AS (
+    SELECT sa.user_id,
+           json_extract_scalar(sa.survey_response, '$.CreditDebt') AS debt_band,
+           ROW_NUMBER() OVER (PARTITION BY sa.user_id ORDER BY sa.created DESC) AS rn
+    FROM iceberg_db_views.brightmoney_backend_master_2__public__bm_users_surveyanswers AS sa
+    WHERE json_extract_scalar(sa.survey_response, '$.CreditDebt') IS NOT NULL
+),
+latest_cs AS (
+    SELECT sa.user_id,
+           json_extract_scalar(sa.survey_response, '$.CreditScore') AS cs_band,
+           ROW_NUMBER() OVER (PARTITION BY sa.user_id ORDER BY sa.created DESC) AS rn
+    FROM iceberg_db_views.brightmoney_backend_master_2__public__bm_users_surveyanswers AS sa
+    WHERE json_extract_scalar(sa.survey_response, '$.CreditScore') IS NOT NULL
+)
+SELECT
+    ut.enroll_date,
+    ut.treatment,
+    COUNT(DISTINCT ut.bright_uid)                                                               AS enrolls,
+    COUNT(DISTINCT CASE WHEN d.debt_band IS NOT NULL AND d.debt_band NOT IN ('more-than-3000')
+                        THEN ut.bright_uid END)                                                 AS debt_pass,
+    COUNT(DISTINCT CASE WHEN c.cs_band   IS NOT NULL AND c.cs_band   NOT IN ('less-than-540')
+                        THEN ut.bright_uid END)                                                 AS cs_pass
+FROM user_treatments ut
+LEFT JOIN (SELECT user_id, debt_band FROM latest_debt WHERE rn = 1) d ON d.user_id = ut.bm_user_id
+LEFT JOIN (SELECT user_id, cs_band   FROM latest_cs   WHERE rn = 1) c ON c.user_id = ut.bm_user_id
+GROUP BY 1, 2
+ORDER BY enroll_date DESC, treatment
+""".replace("{exp_start}", EXP_START)
+
 # 1E — User segment overlap: treatment3 vs treatment7 users by affiliate segmentation_treatment.
 # Sanity check that both arms have balanced segment distributions.
 SQL_1E_USER_OVERLAP = """
@@ -729,9 +776,11 @@ def process_1c_daily(cols, rows):
     out = []
     for r in records:
         day     = parse_week(r["enroll_date"])
-        imped   = int(r["users_with_impression"] or 0)
-        clicked = int(r["users_clicked"]         or 0)
-        out.append({"date": day, "users_with_impression": imped, "users_clicked": clicked})
+        offered = int(r["users_with_offers"]      or 0)
+        imped   = int(r["users_with_impression"]  or 0)
+        clicked = int(r["users_clicked"]          or 0)
+        out.append({"date": day, "users_with_offers": offered,
+                    "users_with_impression": imped, "users_clicked": clicked})
     return out
 
 
@@ -763,12 +812,162 @@ def process_1d(cols, rows):
             "week": wk,
             "test_enrolls": te,
             "ctrl_enrolls": ce,
-            "t7_share": pct(te, total),
+            "test_debt_pass": test.get("debt_pass", 0),
+            "ctrl_debt_pass": ctrl.get("debt_pass", 0),
+            "test_cs_pass":   test.get("cs_pass",   0),
+            "ctrl_cs_pass":   ctrl.get("cs_pass",   0),
+            "t7_share":       pct(te, total),
             "test_debt_rate": pct(test.get("debt_pass", 0), te),
             "ctrl_debt_rate": pct(ctrl.get("debt_pass", 0), ce),
             "test_cs_rate":   pct(test.get("cs_pass", 0),   te),
             "ctrl_cs_rate":   pct(ctrl.get("cs_pass", 0),   ce),
         })
+    return out
+
+
+def process_1d_daily(cols, rows):
+    """Assignment balance grouped by enroll date for day-view."""
+    records = to_records(cols, rows)
+    by_day = defaultdict(dict)
+    for r in records:
+        day = parse_week(r["enroll_date"])
+        grp = "test" if r["treatment"] == "treatment7" else "ctrl"
+        by_day[day][grp] = {
+            "enrolls":   int(r["enrolls"]    or 0),
+            "debt_pass": int(r["debt_pass"]  or 0),
+            "cs_pass":   int(r["cs_pass"]    or 0),
+        }
+    out = []
+    for day in sorted(by_day.keys(), reverse=True):
+        d    = by_day[day]
+        test = d.get("test", {})
+        ctrl = d.get("ctrl", {})
+        te, ce = test.get("enrolls", 0), ctrl.get("enrolls", 0)
+        total = te + ce
+        out.append({
+            "week": day,
+            "test_enrolls": te, "ctrl_enrolls": ce,
+            "test_debt_pass": test.get("debt_pass", 0), "ctrl_debt_pass": ctrl.get("debt_pass", 0),
+            "test_cs_pass":   test.get("cs_pass",   0), "ctrl_cs_pass":   ctrl.get("cs_pass",   0),
+            "t7_share":       pct(te, total),
+            "test_debt_rate": pct(test.get("debt_pass", 0), te),
+            "ctrl_debt_rate": pct(ctrl.get("debt_pass", 0), ce),
+            "test_cs_rate":   pct(test.get("cs_pass", 0),   te),
+            "ctrl_cs_rate":   pct(ctrl.get("cs_pass", 0),   ce),
+        })
+    return out
+
+
+def agg_1b(records, period):
+    """Aggregate weekly 1B API health into monthly buckets, recomputing rates."""
+    if period == "week":
+        return records
+    buckets = defaultdict(lambda: defaultdict(int))
+    for r in records:
+        key = r["week"][:7] if period == "month" else r["week"][:10]
+        buckets[key]["total"]   += r["total"]
+        buckets[key]["success"] += r["success"]
+    out = []
+    for key in sorted(buckets.keys(), reverse=True):
+        total = buckets[key]["total"]; succ = buckets[key]["success"]; fail = total - succ
+        out.append({
+            "week": key, "total": total,
+            "success": succ, "success_rate": pct(succ, total),
+            "failure": fail, "failure_rate": pct(fail, total),
+        })
+    return out
+
+
+def agg_1c(records, period):
+    """Aggregate weekly 1C impression data into monthly buckets, recomputing rates."""
+    if period == "week":
+        return records
+    buckets = defaultdict(lambda: defaultdict(int))
+    for r in records:
+        key = r["week"][:7] if period == "month" else r["week"][:10]
+        for col in ("t7_enrolls", "users_with_offers", "users_with_impression", "users_clicked"):
+            buckets[key][col] += r[col]
+    out = []
+    for key in sorted(buckets.keys(), reverse=True):
+        b = buckets[key]
+        en, off, imp, cl = b["t7_enrolls"], b["users_with_offers"], b["users_with_impression"], b["users_clicked"]
+        out.append({
+            "week": key,
+            "t7_enrolls": en, "users_with_offers": off,
+            "users_with_impression": imp, "users_clicked": cl,
+            "delivery_rate": pct(imp, off), "ctr": pct(cl, imp),
+            "impression_rate_of_enrolls": pct(imp, en),
+        })
+    return out
+
+
+def agg_1d(records, period):
+    """Aggregate 1D balance records into monthly buckets, recomputing rates from raw counts."""
+    if period == "week":
+        return records
+    buckets = defaultdict(lambda: defaultdict(int))
+    for r in records:
+        key = r["week"][:7] if period == "month" else r["week"][:10]
+        for col in ("test_enrolls", "ctrl_enrolls", "test_debt_pass", "ctrl_debt_pass",
+                    "test_cs_pass", "ctrl_cs_pass"):
+            buckets[key][col] += r[col]
+    out = []
+    for key in sorted(buckets.keys(), reverse=True):
+        b = buckets[key]
+        te, ce = b["test_enrolls"], b["ctrl_enrolls"]
+        total = te + ce
+        out.append({
+            "week": key,
+            "test_enrolls": te, "ctrl_enrolls": ce,
+            "test_debt_pass": b["test_debt_pass"], "ctrl_debt_pass": b["ctrl_debt_pass"],
+            "test_cs_pass":   b["test_cs_pass"],   "ctrl_cs_pass":   b["ctrl_cs_pass"],
+            "t7_share":       pct(te, total),
+            "test_debt_rate": pct(b["test_debt_pass"], te),
+            "ctrl_debt_rate": pct(b["ctrl_debt_pass"], ce),
+            "test_cs_rate":   pct(b["test_cs_pass"],   te),
+            "ctrl_cs_rate":   pct(b["ctrl_cs_pass"],   ce),
+        })
+    return out
+
+
+def _agg_2a_monthly(rpu_rows):
+    """Aggregate weekly 2A RPU rows into monthly buckets."""
+    buckets = defaultdict(lambda: defaultdict(float))
+    for r in rpu_rows:
+        key = r["week"][:7]
+        buckets[key]["test_n"]       += r["test_enrolls"]
+        buckets[key]["ctrl_n"]       += r["ctrl_enrolls"]
+        buckets[key]["c1b_rev"]      += r["c1b_rev"]
+        buckets[key]["ctrl_rev"]     += r["c_total_rev"]
+        buckets[key]["test_aff_rev"] += r["test_aff_rpu"] * r["test_enrolls"]
+    out = []
+    cumul = {"test_rev": 0.0, "ctrl_rev": 0.0, "test_n": 0.0, "ctrl_n": 0.0}
+    for key in sorted(buckets.keys()):  # oldest→newest for cumulative
+        b = buckets[key]
+        te, ce = b["test_n"], b["ctrl_n"]
+        t_aff = b["test_aff_rev"]; c1b = b["c1b_rev"]; c_aff = b["ctrl_rev"]
+        t_total = t_aff + c1b
+        t_rpu = round(t_total / te, 4) if te else 0.0
+        c_rpu = round(c_aff   / ce, 4) if ce else 0.0
+        delta = round(t_rpu - c_rpu, 4)
+        lift  = round(delta / c_rpu * 100, 1) if c_rpu else None
+        cumul["test_rev"] += t_total; cumul["ctrl_rev"] += c_aff
+        cumul["test_n"]   += te;      cumul["ctrl_n"]   += ce
+        cum_t = round(cumul["test_rev"] / cumul["test_n"], 4) if cumul["test_n"] else 0.0
+        cum_c = round(cumul["ctrl_rev"] / cumul["ctrl_n"], 4) if cumul["ctrl_n"] else 0.0
+        out.append({
+            "week": key,
+            "test_enrolls": int(te), "ctrl_enrolls": int(ce),
+            "test_aff_rpu":  round(t_aff / te, 4) if te else 0.0,
+            "test_c1b_rpu":  round(c1b   / te, 4) if te else 0.0,
+            "test_rpu":  t_rpu, "ctrl_rpu":  c_rpu,
+            "delta_rpu": delta, "pct_lift":  lift,
+            "cum_test_rpu": cum_t, "cum_ctrl_rpu": cum_c,
+            "cum_delta":    round(cum_t - cum_c, 4),
+            "t_total_rev": t_total, "c_total_rev": c_aff, "c1b_rev": c1b,
+            "weeks_maturity": None,
+        })
+    out.reverse()  # newest first for display
     return out
 
 
@@ -1077,7 +1276,6 @@ def render_1a(day_data):
     cid1 = next_chart_id()
     cid2 = next_chart_id()
     tid  = f"tbl1a_{cid1}"
-    fn   = f"set1aView_{cid1}"
 
     rate_cfg = {
         "type": "line",
@@ -1117,13 +1315,6 @@ def render_1a(day_data):
     js_views_json  = json.dumps(js_views)
     js_tbls_json   = json.dumps(js_tbls)
 
-    toggle = f"""<div style="display:flex;gap:6px;align-items:center;margin-bottom:16px;">
-  <span style="font-size:11px;font-weight:600;color:#718096;margin-right:2px;">Granularity:</span>
-  <button class="period-btn-1a" data-p="day"   onclick="{fn}('day',this)"  style="padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #d1e8d8;background:#fff;color:#5c7a62;font-family:inherit;transition:.15s;">Day on Day</button>
-  <button class="period-btn-1a period-btn-1a-active" data-p="week" onclick="{fn}('week',this)" style="padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #0f4625;background:#0f4625;color:#fff;font-family:inherit;transition:.15s;">Week on Week</button>
-  <button class="period-btn-1a" data-p="month" onclick="{fn}('month',this)" style="padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #d1e8d8;background:#fff;color:#5c7a62;font-family:inherit;transition:.15s;">Month on Month</button>
-</div>"""
-
     script = f"""
 <script>
 (function(){{
@@ -1133,24 +1324,21 @@ def render_1a(day_data):
   var chart2 = new Chart(ctx2, {count_cfg_json});
   var _views = {js_views_json};
   var _tbls  = {js_tbls_json};
-  window['{fn}'] = function(period, el) {{
-    document.querySelectorAll('.period-btn-1a').forEach(function(b) {{
-      b.style.background = '#fff'; b.style.color = '#5c7a62'; b.style.borderColor = '#d1e8d8';
-    }});
-    el.style.background = '#0f4625'; el.style.color = '#fff'; el.style.borderColor = '#0f4625';
-    var d = _views[period];
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
     chart1.data.labels = d.labels;
     d.rate_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
     chart1.update();
     chart2.data.labels = d.labels;
     d.count_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
     chart2.update();
-    document.getElementById('{tid}').innerHTML = _tbls[period];
-  }};
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
 }})();
 </script>"""
 
-    return f"""{toggle}
+    return f"""
 <div class="view-grid">
 {view_card("Step-over-Step Pass Rates", canvas(cid1))}
 {view_card("Funnel Volume", canvas(cid2))}
@@ -1159,121 +1347,317 @@ def render_1a(day_data):
 {script}"""
 
 
-def render_1b(data):
-    weeks  = [r["week"] for r in data]
-    labels = [w[-5:] for w in weeks]
+def render_1b(api_weekly, api_daily):
+    def _fmt_daily(daily):
+        out = []
+        for r in daily:
+            total = r["total"]; succ = r["success"]; fail = total - succ
+            out.append({"week": r["date"], "total": total,
+                        "success": succ, "success_rate": pct(succ, total),
+                        "failure": fail, "failure_rate": pct(fail, total)})
+        return out
+
+    def _build(data):
+        lbl = [r["week"][-5:] for r in data]
+        tbl = table_html(
+            ["Period", "Total API Calls", "Success", "Succ%", "Failure", "Fail%"],
+            [[r["week"], r["total"],
+              r["success"], fmt_pct(r["success_rate"]),
+              r["failure"], fmt_pct(r["failure_rate"])]
+             for r in data],
+            col_classes=["", "", "positive", "positive", "negative", "negative"],
+        )
+        return {
+            "labels": lbl,
+            "stack_ds": [[r["success"] for r in data], [r["failure"] for r in data]],
+            "rate_ds":  [[r["success_rate"] for r in data], [r["failure_rate"] for r in data]],
+            "tbl": tbl,
+        }
+
+    views = {
+        "day":   _build(_fmt_daily(api_daily)),
+        "week":  _build(api_weekly),
+        "month": _build(agg_1b(api_weekly, "month")),
+    }
+    dw = views["week"]
 
     cid1 = next_chart_id()
     cid2 = next_chart_id()
+    tid  = f"tbl1b_{cid1}"
 
-    scripts = bar_chart(cid1, labels, [
-        {"label": "Success", "data": [r["success"] for r in data], "backgroundColor": CHART_COLORS["success"]},
-        {"label": "Failure", "data": [r["failure"] for r in data], "backgroundColor": CHART_COLORS["failed"]},
-    ], "API calls: Success vs Failure per week", stacked=True)
+    stack_cfg = {
+        "type": "bar",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Success", "data": dw["stack_ds"][0], "backgroundColor": CHART_COLORS["success"], "stack": "s"},
+            {"label": "Failure", "data": dw["stack_ds"][1], "backgroundColor": CHART_COLORS["failed"],  "stack": "s"},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "API calls: Success vs Failure", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"stacked": True, "ticks": {"font": {"size": 10}}},
+                       "y": {"stacked": True, "ticks": {"font": {"size": 10}}}}},
+    }
+    rate_cfg = {
+        "type": "line",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Success rate %", "data": dw["rate_ds"][0],
+             "borderColor": CHART_COLORS["success"], "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Failure rate %", "data": dw["rate_ds"][1],
+             "borderColor": CHART_COLORS["failed"],  "backgroundColor": "transparent", "tension": 0.3},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "API success vs failure rate (%)", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
 
-    scripts += line_chart(cid2, labels, [
-        {"label": "Success rate %", "data": [r["success_rate"] for r in data],
-         "borderColor": CHART_COLORS["success"], "backgroundColor": "transparent", "tension": 0.3},
-        {"label": "Failure rate %", "data": [r["failure_rate"] for r in data],
-         "borderColor": CHART_COLORS["failed"],  "backgroundColor": "transparent", "tension": 0.3},
-    ], "API success vs failure rate over time (%)")
+    js_views      = {p: {k: v for k, v in views[p].items() if k != "tbl"} for p in views}
+    js_tbls       = {p: views[p]["tbl"] for p in views}
+    stack_cfg_json = json.dumps(stack_cfg)
+    rate_cfg_json  = json.dumps(rate_cfg)
+    js_views_json  = json.dumps(js_views)
+    js_tbls_json   = json.dumps(js_tbls)
 
-    tbl = table_html(
-        ["Week", "Total API Calls", "Success", "Succ%", "Failure", "Fail%"],
-        [[r["week"], r["total"],
-          r["success"], fmt_pct(r["success_rate"]),
-          r["failure"], fmt_pct(r["failure_rate"])]
-         for r in data],
-        col_classes=["", "", "positive", "positive", "negative", "negative"],
-    )
+    script = f"""
+<script>
+(function(){{
+  var ctx1 = document.getElementById('{cid1}').getContext('2d');
+  var chart1 = new Chart(ctx1, {stack_cfg_json});
+  var ctx2 = document.getElementById('{cid2}').getContext('2d');
+  var chart2 = new Chart(ctx2, {rate_cfg_json});
+  var _views = {js_views_json};
+  var _tbls  = {js_tbls_json};
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
+    chart1.data.labels = d.labels;
+    d.stack_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
+    chart1.update();
+    chart2.data.labels = d.labels;
+    d.rate_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
+    chart2.update();
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
+}})();
+</script>"""
 
     return f"""
 <div class="view-grid">
-{view_card("API Status Stack by Week", canvas(cid1))}
-{view_card("API Rates Over Time", canvas(cid2))}
+{view_card("API Status Volume", canvas(cid1))}
+{view_card("API Rates Over Time (%)", canvas(cid2))}
 </div>
-{view_card("API Health Table", tbl, full_width=True)}
-{scripts}"""
+{view_card("API Health Table", f'<div id="{tid}">{dw["tbl"]}</div>', full_width=True)}
+{script}"""
 
 
-def render_1c(data):
-    weeks  = [r["week"] for r in data]
-    labels = [w[-5:] for w in weeks]
+def render_1c(imp_weekly, imp_daily, funnel_day):
+    def _fmt_daily(daily):
+        funnel_idx = {r["week"]: r.get("t7_count", 0) for r in funnel_day}
+        out = []
+        for r in daily:
+            day = r["date"]
+            en  = funnel_idx.get(day, 0)
+            off = r.get("users_with_offers", 0)
+            imp = r["users_with_impression"]
+            cl  = r["users_clicked"]
+            out.append({
+                "week": day, "t7_enrolls": en, "users_with_offers": off,
+                "users_with_impression": imp, "users_clicked": cl,
+                "delivery_rate": pct(imp, off), "ctr": pct(cl, imp),
+            })
+        return out
+
+    def _build(data):
+        lbl = [r["week"][-5:] for r in data]
+        tbl = table_html(
+            ["Period", "T7 Enrolls", "Users w/ Offers", "Users w/ Impression", "Delivery Rate%", "Users Clicked", "CTR%"],
+            [[r["week"], r["t7_enrolls"],
+              r["users_with_offers"], r["users_with_impression"],
+              fmt_pct(r["delivery_rate"]), r["users_clicked"], fmt_pct(r["ctr"])]
+             for r in data],
+        )
+        return {
+            "labels": lbl,
+            "rate_ds": [[r["delivery_rate"] for r in data], [r["ctr"] for r in data]],
+            "vol_ds":  [[r["users_with_offers"] for r in data],
+                        [r["users_with_impression"] for r in data],
+                        [r["users_clicked"] for r in data]],
+            "tbl": tbl,
+        }
+
+    views = {
+        "day":   _build(_fmt_daily(imp_daily)),
+        "week":  _build(imp_weekly),
+        "month": _build(agg_1c(imp_weekly, "month")),
+    }
+    dw = views["week"]
 
     cid1 = next_chart_id()
     cid2 = next_chart_id()
+    tid  = f"tbl1c_{cid1}"
 
-    scripts = line_chart(cid1, labels, [
-        {"label": "Delivery rate % (imps/offers)",   "data": [r["delivery_rate"] for r in data],
-         "borderColor": CHART_COLORS["test"], "backgroundColor": "transparent", "tension": 0.3},
-        {"label": "CTR % (clicks/imps)",             "data": [r["ctr"]           for r in data],
-         "borderColor": CHART_COLORS["c1b"],  "backgroundColor": "transparent", "tension": 0.3},
-    ], "Delivery rate & CTR over time")
+    rate_cfg = {
+        "type": "line",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Delivery rate % (imps/offers)", "data": dw["rate_ds"][0],
+             "borderColor": CHART_COLORS["test"], "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "CTR % (clicks/imps)",           "data": dw["rate_ds"][1],
+             "borderColor": CHART_COLORS["c1b"],  "backgroundColor": "transparent", "tension": 0.3},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "Delivery rate & CTR over time", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
+    vol_cfg = {
+        "type": "bar",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Users with offers",     "data": dw["vol_ds"][0], "backgroundColor": "#93c5fd"},
+            {"label": "Users with impression", "data": dw["vol_ds"][1], "backgroundColor": "#2563eb"},
+            {"label": "Users clicked",         "data": dw["vol_ds"][2], "backgroundColor": "#16a34a"},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "Offer → Impression → Click funnel", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
 
-    scripts += bar_chart(cid2, labels, [
-        {"label": "Users with offers",     "data": [r["users_with_offers"]      for r in data], "backgroundColor": "#93c5fd"},
-        {"label": "Users with impression", "data": [r["users_with_impression"]  for r in data], "backgroundColor": "#2563eb"},
-        {"label": "Users clicked",         "data": [r["users_clicked"]          for r in data], "backgroundColor": "#16a34a"},
-    ], "Offer → Impression → Click funnel by week")
+    js_views     = {p: {k: v for k, v in views[p].items() if k != "tbl"} for p in views}
+    js_tbls      = {p: views[p]["tbl"] for p in views}
+    rate_cfg_json = json.dumps(rate_cfg)
+    vol_cfg_json  = json.dumps(vol_cfg)
+    js_views_json = json.dumps(js_views)
+    js_tbls_json  = json.dumps(js_tbls)
 
-    tbl = table_html(
-        ["Week", "T7 Enrolls", "Users with Offers", "Users with Impression", "Delivery Rate", "Users Clicked", "CTR"],
-        [[r["week"], r["t7_enrolls"],
-          r["users_with_offers"], r["users_with_impression"],
-          fmt_pct(r["delivery_rate"]),
-          r["users_clicked"], fmt_pct(r["ctr"])]
-         for r in data],
-    )
+    script = f"""
+<script>
+(function(){{
+  var ctx1 = document.getElementById('{cid1}').getContext('2d');
+  var chart1 = new Chart(ctx1, {rate_cfg_json});
+  var ctx2 = document.getElementById('{cid2}').getContext('2d');
+  var chart2 = new Chart(ctx2, {vol_cfg_json});
+  var _views = {js_views_json};
+  var _tbls  = {js_tbls_json};
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
+    chart1.data.labels = d.labels;
+    d.rate_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
+    chart1.update();
+    chart2.data.labels = d.labels;
+    d.vol_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
+    chart2.update();
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
+}})();
+</script>"""
 
     return f"""
 <div class="view-grid">
-{view_card("Delivery Rate & CTR", canvas(cid1))}
+{view_card("Delivery Rate & CTR (%)", canvas(cid1))}
 {view_card("Offer → Impression → Click Volume", canvas(cid2))}
 </div>
-{view_card("Impression Delivery Table", tbl, full_width=True)}
-{scripts}"""
+{view_card("Impression Delivery Table", f'<div id="{tid}">{dw["tbl"]}</div>', full_width=True)}
+{script}"""
 
 
-def render_1d(data):
-    weeks  = [r["week"] for r in data]
-    labels = [w[-5:] for w in weeks]
+def render_1d(bal_weekly, bal_daily):
+    def _build(data):
+        lbl = [r["week"][-5:] for r in data]
+        tbl = table_html(
+            ["Period", "Test Enrolls", "Ctrl Enrolls", "T7 Share%",
+             "Test Debt≤3k%", "Ctrl Debt≤3k%", "Test CS≥540%", "Ctrl CS≥540%"],
+            [[r["week"], r["test_enrolls"], r["ctrl_enrolls"],
+              fmt_pct(r["t7_share"]),
+              fmt_pct(r["test_debt_rate"]), fmt_pct(r["ctrl_debt_rate"]),
+              fmt_pct(r["test_cs_rate"]),   fmt_pct(r["ctrl_cs_rate"])]
+             for r in data],
+        )
+        return {
+            "labels": lbl,
+            "enroll_ds": [[r["test_enrolls"] for r in data], [r["ctrl_enrolls"] for r in data]],
+            "rate_ds":   [[r["test_debt_rate"] for r in data], [r["ctrl_debt_rate"] for r in data],
+                          [r["test_cs_rate"]   for r in data], [r["ctrl_cs_rate"]   for r in data]],
+            "tbl": tbl,
+        }
+
+    views = {
+        "day":   _build(bal_daily),
+        "week":  _build(bal_weekly),
+        "month": _build(agg_1d(bal_weekly, "month")),
+    }
+    dw = views["week"]
 
     cid1 = next_chart_id()
     cid2 = next_chart_id()
+    tid  = f"tbl1d_{cid1}"
 
-    scripts = bar_chart(cid1, labels, [
-        {"label": "Test (T7) enrolls",    "data": [r["test_enrolls"] for r in data], "backgroundColor": CHART_COLORS["test"]},
-        {"label": "Control (T3) enrolls", "data": [r["ctrl_enrolls"] for r in data], "backgroundColor": CHART_COLORS["ctrl"]},
-    ], "Weekly enroll count per treatment")
+    enroll_cfg = {
+        "type": "bar",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Test (T7) enrolls",    "data": dw["enroll_ds"][0], "backgroundColor": CHART_COLORS["test"]},
+            {"label": "Control (T3) enrolls", "data": dw["enroll_ds"][1], "backgroundColor": CHART_COLORS["ctrl"]},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "Enroll count per treatment", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
+    quality_cfg = {
+        "type": "line",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Test debt≤3k %",  "data": dw["rate_ds"][0],
+             "borderColor": CHART_COLORS["test"], "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Ctrl debt≤3k %",  "data": dw["rate_ds"][1],
+             "borderColor": CHART_COLORS["ctrl"], "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4,4]},
+            {"label": "Test CS≥540 %",   "data": dw["rate_ds"][2],
+             "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Ctrl CS≥540 %",   "data": dw["rate_ds"][3],
+             "borderColor": "#d97706", "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4,4]},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "User quality proxy: debt & CS rates", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
 
-    scripts += line_chart(cid2, labels, [
-        {"label": "Test debt≤3k %",  "data": [r["test_debt_rate"] for r in data],
-         "borderColor": CHART_COLORS["test"], "backgroundColor": "transparent", "tension": 0.3},
-        {"label": "Ctrl debt≤3k %",  "data": [r["ctrl_debt_rate"] for r in data],
-         "borderColor": CHART_COLORS["ctrl"], "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4,4]},
-        {"label": "Test CS≥540 %",   "data": [r["test_cs_rate"] for r in data],
-         "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3},
-        {"label": "Ctrl CS≥540 %",   "data": [r["ctrl_cs_rate"] for r in data],
-         "borderColor": "#d97706", "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4,4]},
-    ], "User quality proxy: debt & credit score rates by treatment")
+    js_views        = {p: {k: v for k, v in views[p].items() if k != "tbl"} for p in views}
+    js_tbls         = {p: views[p]["tbl"] for p in views}
+    enroll_cfg_json  = json.dumps(enroll_cfg)
+    quality_cfg_json = json.dumps(quality_cfg)
+    js_views_json    = json.dumps(js_views)
+    js_tbls_json     = json.dumps(js_tbls)
 
-    tbl = table_html(
-        ["Week", "Test Enrolls", "Ctrl Enrolls", "T7 Share%",
-         "Test Debt≤3k%", "Ctrl Debt≤3k%", "Test CS≥540%", "Ctrl CS≥540%"],
-        [[r["week"], r["test_enrolls"], r["ctrl_enrolls"],
-          fmt_pct(r["t7_share"]),
-          fmt_pct(r["test_debt_rate"]), fmt_pct(r["ctrl_debt_rate"]),
-          fmt_pct(r["test_cs_rate"]),   fmt_pct(r["ctrl_cs_rate"])]
-         for r in data],
-    )
+    script = f"""
+<script>
+(function(){{
+  var ctx1 = document.getElementById('{cid1}').getContext('2d');
+  var chart1 = new Chart(ctx1, {enroll_cfg_json});
+  var ctx2 = document.getElementById('{cid2}').getContext('2d');
+  var chart2 = new Chart(ctx2, {quality_cfg_json});
+  var _views = {js_views_json};
+  var _tbls  = {js_tbls_json};
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
+    chart1.data.labels = d.labels;
+    d.enroll_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
+    chart1.update();
+    chart2.data.labels = d.labels;
+    d.rate_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
+    chart2.update();
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
+}})();
+</script>"""
 
     return f"""
 <div class="view-grid">
-{view_card("Weekly Enroll Split by Treatment", canvas(cid1))}
+{view_card("Enroll Split by Treatment", canvas(cid1))}
 {view_card("User Quality Proxy (Test vs Control)", canvas(cid2))}
 </div>
-{view_card("Assignment Balance Table", tbl, full_width=True)}
-{scripts}"""
+{view_card("Assignment Balance Table", f'<div id="{tid}">{dw["tbl"]}</div>', full_width=True)}
+{script}"""
 
 
 def render_1e(data):
@@ -1304,60 +1688,129 @@ def render_1e(data):
 
 
 def render_2a(data, cumul):
-    rev = list(reversed(data))  # oldest → newest for chart x-axis
-    labels = [r["week"][-5:] for r in rev]
+    def _build(rows):
+        rev = list(reversed(rows))  # oldest → newest for chart
+        lbl = [r["week"][-5:] for r in rev]
+        delta_colors = [CHART_COLORS["c1b"] if r["delta_rpu"] >= 0 else "#dc2626" for r in rev]
+        tbl = table_html(
+            ["Period", "Test Enrolls", "Ctrl Enrolls",
+             "Test Loan RPU", "Test C1B RPU", "Test Total RPU",
+             "Ctrl RPU", "Δ RPU", "Lift %"],
+            [[r["week"], r["test_enrolls"], r["ctrl_enrolls"],
+              fmt_dollar(r["test_aff_rpu"]), fmt_dollar(r["test_c1b_rpu"]),
+              fmt_dollar(r["test_rpu"]),     fmt_dollar(r["ctrl_rpu"]),
+              fmt_dollar(r["delta_rpu"]),
+              (fmt_pct(r["pct_lift"]) if r["pct_lift"] is not None else "—")]
+             for r in rows],
+            col_classes=["","","","","","positive","",
+                         *[delta_class(r["delta_rpu"]) for r in rows[:1]], ""],
+        )
+        return {
+            "labels": lbl,
+            "rpu_ds":   [[r["test_rpu"] for r in rev], [r["ctrl_rpu"] for r in rev]],
+            "comp_ds":  [[r["test_aff_rpu"] for r in rev], [r["test_c1b_rpu"] for r in rev],
+                         [r["ctrl_rpu"] for r in rev]],
+            "delta_ds": [[r["delta_rpu"] for r in rev]],
+            "delta_colors": delta_colors,
+            "tbl": tbl,
+        }
+
+    month_rows = _agg_2a_monthly(data)
+    views = {
+        "day":   _build(data),   # day grain not meaningful for RPU — show weekly as proxy
+        "week":  _build(data),
+        "month": _build(month_rows),
+    }
+    dw = views["week"]
 
     cid1 = next_chart_id()
     cid2 = next_chart_id()
     cid3 = next_chart_id()
+    tid  = f"tbl2a_{cid1}"
 
-    # Chart 1 — Test vs Control RPU line
-    scripts = line_chart(cid1, labels, [
-        {"label": "Test RPU",    "data": [r["test_rpu"] for r in rev],
-         "borderColor": CHART_COLORS["test"], "backgroundColor": "transparent", "tension": 0.3, "pointRadius": 4},
-        {"label": "Control RPU", "data": [r["ctrl_rpu"] for r in rev],
-         "borderColor": CHART_COLORS["ctrl"], "backgroundColor": "transparent", "tension": 0.3, "pointRadius": 4},
-    ], "Weekly RPU: Test vs Control")
+    rpu_cfg = {
+        "type": "line",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Test RPU",    "data": dw["rpu_ds"][0],
+             "borderColor": CHART_COLORS["test"], "backgroundColor": "transparent", "tension": 0.3, "pointRadius": 4},
+            {"label": "Control RPU", "data": dw["rpu_ds"][1],
+             "borderColor": CHART_COLORS["ctrl"], "backgroundColor": "transparent", "tension": 0.3, "pointRadius": 4},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "RPU: Test vs Control", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
+    comp_cfg = {
+        "type": "bar",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Test: Loan RPU",    "data": dw["comp_ds"][0], "backgroundColor": CHART_COLORS["loan"],  "stack": "test"},
+            {"label": "Test: C1B RPU",     "data": dw["comp_ds"][1], "backgroundColor": CHART_COLORS["c1b"],   "stack": "test"},
+            {"label": "Control: Loan RPU", "data": dw["comp_ds"][2], "backgroundColor": CHART_COLORS["ctrl"],  "stack": "ctrl"},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "RPU composition: Test (Loan+C1B) vs Control", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"stacked": True, "ticks": {"font": {"size": 10}}},
+                       "y": {"stacked": True, "ticks": {"font": {"size": 10}}}}},
+    }
+    delta_cfg = {
+        "type": "bar",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Δ RPU (Test − Control)", "data": dw["delta_ds"][0],
+             "backgroundColor": dw["delta_colors"]},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "RPU Delta (Test − Control)", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
 
-    # Chart 2 — RPU composition: Test (Loan + C1B stacked) vs Control
-    scripts += bar_chart(cid2, labels, [
-        {"label": "Test: Loan RPU", "data": [r["test_aff_rpu"] for r in rev],
-         "backgroundColor": CHART_COLORS["loan"], "stack": "test"},
-        {"label": "Test: C1B RPU",  "data": [r["test_c1b_rpu"] for r in rev],
-         "backgroundColor": CHART_COLORS["c1b"], "stack": "test"},
-        {"label": "Control: Loan RPU", "data": [r["ctrl_rpu"] for r in rev],
-         "backgroundColor": CHART_COLORS["ctrl"], "stack": "ctrl"},
-    ], "RPU composition: Test (Loan + C1B) vs Control", stacked=True)
+    js_views      = {p: {k: v for k, v in views[p].items() if k != "tbl"} for p in views}
+    js_tbls       = {p: views[p]["tbl"] for p in views}
+    rpu_cfg_json   = json.dumps(rpu_cfg)
+    comp_cfg_json  = json.dumps(comp_cfg)
+    delta_cfg_json = json.dumps(delta_cfg)
+    js_views_json  = json.dumps(js_views)
+    js_tbls_json   = json.dumps(js_tbls)
 
-    # Chart 3 — Δ RPU bar
-    scripts += bar_chart(cid3, labels, [
-        {"label": "Δ RPU (Test − Control)",
-         "data": [r["delta_rpu"] for r in rev],
-         "backgroundColor": [CHART_COLORS["c1b"] if r["delta_rpu"] >= 0 else "#dc2626" for r in rev]},
-    ], "Weekly RPU Delta (Test − Control)")
-
-    tbl = table_html(
-        ["Week", "Test Enrolls", "Ctrl Enrolls",
-         "Test Loan RPU", "Test C1B RPU", "Test Total RPU",
-         "Ctrl RPU", "Δ RPU", "Lift %"],
-        [[r["week"], r["test_enrolls"], r["ctrl_enrolls"],
-          fmt_dollar(r["test_aff_rpu"]), fmt_dollar(r["test_c1b_rpu"]),
-          fmt_dollar(r["test_rpu"]),     fmt_dollar(r["ctrl_rpu"]),
-          fmt_dollar(r["delta_rpu"]),
-          (fmt_pct(r["pct_lift"]) if r["pct_lift"] is not None else "—")]
-         for r in data],
-        col_classes=["","","","","","positive","",
-                     *[delta_class(r["delta_rpu"]) for r in data[:1]], ""],
-    )
+    script = f"""
+<script>
+(function(){{
+  var ctx1 = document.getElementById('{cid1}').getContext('2d');
+  var chart1 = new Chart(ctx1, {rpu_cfg_json});
+  var ctx2 = document.getElementById('{cid2}').getContext('2d');
+  var chart2 = new Chart(ctx2, {comp_cfg_json});
+  var ctx3 = document.getElementById('{cid3}').getContext('2d');
+  var chart3 = new Chart(ctx3, {delta_cfg_json});
+  var _views = {js_views_json};
+  var _tbls  = {js_tbls_json};
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
+    chart1.data.labels = d.labels;
+    d.rpu_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
+    chart1.update();
+    chart2.data.labels = d.labels;
+    d.comp_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
+    chart2.update();
+    chart3.data.labels = d.labels;
+    chart3.data.datasets[0].data = d.delta_ds[0];
+    chart3.data.datasets[0].backgroundColor = d.delta_colors;
+    chart3.update();
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
+}})();
+</script>"""
 
     return f"""
 <div class="view-grid">
-{view_card("Weekly RPU: Test vs Control", canvas(cid1))}
-{view_card("RPU Composition: Test (Loan + C1B) vs Control", canvas(cid2))}
+{view_card("RPU: Test vs Control", canvas(cid1))}
+{view_card("RPU Composition: Test (Loan+C1B) vs Control", canvas(cid2))}
 </div>
-{view_card("Weekly RPU Delta (Test − Control)", canvas(cid3), full_width=True)}
-{view_card("RPU Weekly Detail", tbl, full_width=True)}
-{scripts}"""
+{view_card("RPU Delta (Test − Control)", canvas(cid3), full_width=True)}
+{view_card("RPU Detail Table", f'<div id="{tid}">{dw["tbl"]}</div>', full_width=True)}
+{script}"""
 
 
 def render_2b(data):
@@ -1687,7 +2140,6 @@ def render_0(rc_data, funnel_day, api_daily, imp_daily):
     cid1 = next_chart_id()
     cid2 = next_chart_id()
     tid  = f"tbl0_{cid1}"
-    fn   = f"set0View_{cid1}"
 
     vol_cfg = {
         "type": "line",
@@ -1728,13 +2180,6 @@ def render_0(rc_data, funnel_day, api_daily, imp_daily):
     js_views_json = json.dumps(js_views)
     js_tbls_json  = json.dumps(js_tbls)
 
-    toggle = f"""<div style="display:flex;gap:6px;align-items:center;margin-bottom:16px;">
-  <span style="font-size:11px;font-weight:600;color:#718096;margin-right:2px;">Granularity:</span>
-  <button class="period-btn-0" data-p="day"   onclick="{fn}('day',this)"   style="padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #d1e8d8;background:#fff;color:#5c7a62;font-family:inherit;transition:.15s;">Day on Day</button>
-  <button class="period-btn-0 period-btn-0-active" data-p="week" onclick="{fn}('week',this)" style="padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #0f4625;background:#0f4625;color:#fff;font-family:inherit;transition:.15s;">Week on Week</button>
-  <button class="period-btn-0" data-p="month" onclick="{fn}('month',this)" style="padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #d1e8d8;background:#fff;color:#5c7a62;font-family:inherit;transition:.15s;">Month on Month</button>
-</div>"""
-
     script = f"""
 <script>
 (function(){{
@@ -1744,24 +2189,21 @@ def render_0(rc_data, funnel_day, api_daily, imp_daily):
   var chart2 = new Chart(ctx2, {rate_cfg_json});
   var _views = {js_views_json};
   var _tbls  = {js_tbls_json};
-  window['{fn}'] = function(period, el) {{
-    document.querySelectorAll('.period-btn-0').forEach(function(b) {{
-      b.style.background = '#fff'; b.style.color = '#5c7a62'; b.style.borderColor = '#d1e8d8';
-    }});
-    el.style.background = '#0f4625'; el.style.color = '#fff'; el.style.borderColor = '#0f4625';
-    var d = _views[period];
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
     chart1.data.labels = d.labels;
     d.vol_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
     chart1.update();
     chart2.data.labels = d.labels;
     d.rate_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
     chart2.update();
-    document.getElementById('{tid}').innerHTML = _tbls[period];
-  }};
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
 }})();
 </script>"""
 
-    return f"""{toggle}
+    return f"""
 <div class="view-grid">
 {view_card("Funnel Volume", canvas(cid1))}
 {view_card("Stage Conversion Rates (%)", canvas(cid2))}
@@ -1816,6 +2258,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <title>C1B Impact Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+window.C1B_GRAIN = 'week';
+window._grainHandlers = [];
+function setGrain(grain) {{
+  window.C1B_GRAIN = grain;
+  document.querySelectorAll('.grain-btn').forEach(function(b) {{
+    var on = b.dataset.grain === grain;
+    b.style.background   = on ? '#0f4625' : '#fff';
+    b.style.color        = on ? '#fff'    : '#5c7a62';
+    b.style.borderColor  = on ? '#0f4625' : '#d1e8d8';
+    b.style.fontWeight   = '700';
+  }});
+  (window._grainHandlers || []).forEach(function(fn) {{ try {{ fn(grain); }} catch(e) {{}} }});
+}}
+</script>
 <style>
 :root{{
   --bg:#f0f2f5; --card:#ffffff; --border:#e2e8f0;
@@ -1827,10 +2284,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 body{{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;overflow-x:hidden}}
 
 /* ── Main tabs (match recon sub-nav style) ── */
-.nav-wrap{{padding:0 28px;background:var(--card);border-bottom:2px solid var(--border);display:flex;gap:0}}
+.nav-wrap{{padding:0 28px;background:var(--card);border-bottom:2px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:0}}
+.nav-tabs{{display:flex;gap:0}}
 .main-tab{{padding:11px 20px;border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:inherit;transition:color .15s,border-color .15s}}
 .main-tab.active{{color:var(--blue);border-bottom-color:var(--blue)}}
 .main-tab:hover:not(.active){{color:var(--text)}}
+.grain-btn{{padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:20px;border:1.5px solid #d1e8d8;background:#fff;color:#5c7a62;font-family:inherit;transition:.15s}}
+.grain-btn:hover{{border-color:#0f4625;color:#0f4625}}
 
 /* ── Tab content ── */
 .tab-pane{{display:none;padding:24px 28px 36px}}
@@ -1867,9 +2327,17 @@ tr:hover td{{background:#f8fafc}}
 <body>
 
 <div class="nav-wrap">
-  <button class="main-tab active" onclick="showTab('l0',this)">Report Card</button>
-  <button class="main-tab"        onclick="showTab('l1',this)">Operational Health</button>
-  <button class="main-tab"        onclick="showTab('l2',this)">Revenue Impact</button>
+  <div class="nav-tabs">
+    <button class="main-tab active" onclick="showTab('l0',this)">Report Card</button>
+    <button class="main-tab"        onclick="showTab('l1',this)">Operational Health</button>
+    <button class="main-tab"        onclick="showTab('l2',this)">Revenue Impact</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:8px 0 8px 0;">
+    <span style="font-size:11px;font-weight:600;color:#718096;">Granularity:</span>
+    <button class="grain-btn" data-grain="week"  onclick="setGrain('week')"  style="background:#0f4625;color:#fff;border-color:#0f4625;font-weight:700;">Week</button>
+    <button class="grain-btn" data-grain="day"   onclick="setGrain('day')"   style="background:#fff;color:#5c7a62;border-color:#d1e8d8;font-weight:700;">Day</button>
+    <button class="grain-btn" data-grain="month" onclick="setGrain('month')" style="background:#fff;color:#5c7a62;border-color:#d1e8d8;font-weight:700;">Month</button>
+  </div>
 </div>
 
 <!-- Report Card -->
@@ -1936,9 +2404,9 @@ def generate_html(data):
         refresh_date = date.today().strftime("%B %d, %Y"),
         content_0    = render_0(data["rc"], data["funnel"], data["api_daily"], data["imp_daily"]),
         content_1a   = render_1a(data["funnel"]),
-        content_1b   = render_1b(data["api_health"]),
-        content_1c   = render_1c(data["impression"]),
-        content_1d   = render_1d(data["balance"]),
+        content_1b   = render_1b(data["api_health"], data["api_daily"]),
+        content_1c   = render_1c(data["impression"], data["imp_daily"], data["funnel"]),
+        content_1d   = render_1d(data["balance"], data["bal_daily"]),
         content_1e   = render_1e(data["overlap"]),
         content_2a   = render_2a(data["rpu_rows"], data["cumul"]),
     )
@@ -1966,15 +2434,16 @@ def main():
     print(f"OK  {len(c1b_map)} weeks of C1B bounty data")
 
     queries = [
-        ("1A Funnel",        SQL_1A_FUNNEL),
-        ("1B API Health",    SQL_1B_API_HEALTH),
-        ("1B API Daily",     SQL_1B_API_HEALTH_DAILY),
-        ("1C Impressions",   SQL_1C_IMPRESSION),
-        ("1C Imp Daily",     SQL_1C_IMPRESSION_DAILY),
-        ("1D Balance",       SQL_1D_BALANCE),
-        ("1E User Overlap",  SQL_1E_USER_OVERLAP),
-        ("2A Base RPU",      SQL_BASE_RPU),
-        ("2B Partner Pays",  SQL_PARTNER_PAYOUTS),
+        ("1A Funnel",          SQL_1A_FUNNEL),
+        ("1B API Health",      SQL_1B_API_HEALTH),
+        ("1B API Daily",       SQL_1B_API_HEALTH_DAILY),
+        ("1C Impressions",     SQL_1C_IMPRESSION),
+        ("1C Imp Daily",       SQL_1C_IMPRESSION_DAILY),
+        ("1D Balance",         SQL_1D_BALANCE),
+        ("1D Balance Daily",   SQL_1D_BALANCE_DAILY),
+        ("1E User Overlap",    SQL_1E_USER_OVERLAP),
+        ("2A Base RPU",        SQL_BASE_RPU),
+        ("2B Partner Pays",    SQL_PARTNER_PAYOUTS),
     ]
 
     results = {}
@@ -1990,18 +2459,19 @@ def main():
             results[name] = ([], [])
 
     print("\n[4] Processing data...")
-    funnel_data  = process_1a(*results["1A Funnel"])   # day-level
-    funnel_weekly = agg_1a(funnel_data, "week")         # week-level for report card
-    api_data     = process_1b(*results["1B API Health"])
-    api_daily    = process_1b_daily(*results["1B API Daily"])
-    imp_data     = process_1c(*results["1C Impressions"])
-    imp_daily    = process_1c_daily(*results["1C Imp Daily"])
-    bal_data     = process_1d(*results["1D Balance"])
-    overlap_data = process_1e(*results["1E User Overlap"])
+    funnel_data   = process_1a(*results["1A Funnel"])    # day-level
+    funnel_weekly = agg_1a(funnel_data, "week")           # week-level for report card
+    api_data      = process_1b(*results["1B API Health"])
+    api_daily     = process_1b_daily(*results["1B API Daily"])
+    imp_data      = process_1c(*results["1C Impressions"])
+    imp_daily     = process_1c_daily(*results["1C Imp Daily"])
+    bal_data      = process_1d(*results["1D Balance"])
+    bal_daily     = process_1d_daily(*results["1D Balance Daily"])
+    overlap_data  = process_1e(*results["1E User Overlap"])
     rpu_rows, cumul = process_2a(*results["2A Base RPU"], c1b_map)
-    decomp_data  = process_2b(*results["2B Partner Pays"], c1b_map)
-    cannibal     = process_4a(rpu_rows)
-    rc_data      = process_0(funnel_weekly, api_data, imp_data, rpu_rows)
+    decomp_data   = process_2b(*results["2B Partner Pays"], c1b_map)
+    cannibal      = process_4a(rpu_rows)
+    rc_data       = process_0(funnel_weekly, api_data, imp_data, rpu_rows)
 
     all_data = {
         "funnel":     funnel_data,
@@ -2010,6 +2480,7 @@ def main():
         "impression": imp_data,
         "imp_daily":  imp_daily,
         "balance":    bal_data,
+        "bal_daily":  bal_daily,
         "overlap":    overlap_data,
         "rc":         rc_data,
         "rpu_rows":   rpu_rows,
