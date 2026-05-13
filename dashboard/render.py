@@ -1490,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── Refresh button ────────────────────────────────────────────────────────────
 (function() {
-  var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+  var API = window.location.protocol + '//' + window.location.host.replace(/:.*/, '') + '/affiliates-recon-dashboard';
   var pollTimer = null;
 
   function btn() { return document.getElementById('refreshBtn'); }
@@ -1559,7 +1559,7 @@ window.addEventListener('message', function(e) {
 
 // ── Monitor Refresh (shares recon pipeline) ───────────────────────────────────
 (function() {
-  var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+  var API = window.location.protocol + '//' + window.location.host.replace(/:.*/, '') + '/affiliates-recon-dashboard';
   var pollTimer = null;
 
   function btn()  { return document.getElementById('monRefreshBtn'); }
@@ -1618,7 +1618,7 @@ window.addEventListener('message', function(e) {
 
 // ── C1B Refresh ───────────────────────────────────────────────────────────────
 (function() {
-  var API = window.location.protocol + '//' + window.location.hostname + ':8765';
+  var API = window.location.protocol + '//' + window.location.host.replace(/:.*/, '') + '/affiliates-recon-dashboard';
   var pollTimer = null;
 
   function btn()    { return document.getElementById('c1bRefreshBtn'); }
