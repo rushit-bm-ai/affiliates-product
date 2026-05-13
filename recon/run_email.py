@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import requests
 
 import config
-from recon.email import (generate_email_html, send_email, append_email_log,
-                         compute_changes, compute_l1_changes)
+from recon.mailer import (generate_email_html, send_email, append_email_log,
+                          compute_changes, compute_l1_changes)
 
 L3_FILE           = os.path.join(config.COMPUTED_DIR, "l3_live_results.json")
 L3_SNAPSHOT_FILE  = os.path.join(config.COMPUTED_DIR, "l3_prev_snapshot.json")
