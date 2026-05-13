@@ -765,7 +765,7 @@ html.dark .kpi-card { background:var(--card); border-color:var(--border); }
         <label for="exp-tab1"><span class="tab-dot dot-blue"></span>C1B</label>
       </div>
       <div style="display:flex;align-items:center;gap:12px;padding-right:16px;">
-        <span style="font-size:11px;color:var(--muted)" id="c1bStatusText"></span>
+        <span style="font-size:11px;color:var(--muted)" id="c1bStatusText">{{ c1b_last_updated }}</span>
         <button class="refresh-btn" id="c1bRefreshBtn" onclick="triggerC1BRefresh()">&#x21bb; Refresh</button>
       </div>
     </div>
@@ -1758,9 +1758,21 @@ def main(close_month=None):
             return [to_dot(i) for i in d]
         return d
 
+    c1b_last_updated = ""
+    c1b_status_path = os.path.join(os.path.dirname(config.OUTPUT_HTML), "computed", "c1b_refresh_status.json")
+    if os.path.exists(c1b_status_path):
+        try:
+            with open(c1b_status_path) as _f:
+                _s = json.load(_f)
+            if _s.get("finished_at"):
+                c1b_last_updated = "Last: " + _s["finished_at"]
+        except Exception:
+            pass
+
     ctx = {
         "close_month": close_month,
         "generated_at": (datetime.utcnow() + IST_OFFSET).strftime("%Y-%m-%d %H:%M"),
+        "c1b_last_updated": c1b_last_updated,
         "l1": to_dot(l1) if l1 else None,
         "l3": to_dot(l3) if l3 else None,
         "l1_months": l1_months,

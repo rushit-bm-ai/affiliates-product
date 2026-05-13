@@ -160,6 +160,45 @@ GROUP BY 1, 2, 3
 ORDER BY enroll_week DESC, user_segment, status
 """.replace("{exp_start}", EXP_START)
 
+# 1B (daily) — API health grouped by enroll date for day-view Report Card.
+SQL_1B_API_HEALTH_DAILY = """
+WITH
+user_treatments AS (
+    SELECT uc.bright_uid,
+           DATE(uc.first_enrolled_on) AS enroll_date
+    FROM iceberg_db.meta_cube__user_current_state AS uc
+    INNER JOIN iceberg_db.brightmoney_backend_master_2__public__bm_users_userstatemachinesessiondata__base AS usm
+        ON usm.user_id = uc.bm_user_id
+    WHERE json_extract_scalar(usm.split_session_data,
+              '$.growth_survey_experiment.treatment') = 'treatment7'
+      AND DATE(uc.first_enrolled_on) >= DATE '{exp_start}'
+    GROUP BY uc.bright_uid, DATE(uc.first_enrolled_on)
+),
+sessions_deduped AS (
+    SELECT
+        ou.bright_uid,
+        sess.status,
+        ROW_NUMBER() OVER (
+            PARTITION BY ou.bright_uid
+            ORDER BY
+                CASE WHEN sess.status IN ('SUCCESS','API_SUCCESS','APPLICATION_SUBMITTED') THEN 0 ELSE 1 END,
+                sess.created_date DESC
+        ) AS rn
+    FROM iceberg_db_views.brightmoney_offers__public__offers_platform_offersessiondetails AS sess
+    LEFT JOIN iceberg_db_views.brightmoney_offers__public__offers_platform_user AS ou
+        ON ou.id = sess.user_id
+    WHERE sess.partner_id = 4
+)
+SELECT
+    ut.enroll_date,
+    sd.status,
+    COUNT(DISTINCT ut.bright_uid) AS user_count
+FROM user_treatments ut
+INNER JOIN (SELECT * FROM sessions_deduped WHERE rn = 1) sd ON sd.bright_uid = ut.bright_uid
+GROUP BY 1, 2
+ORDER BY enroll_date DESC, status
+""".replace("{exp_start}", EXP_START)
+
 # 1C — Impression delivery: per enroll_week, users with offers vs those who got impression vs clicked.
 SQL_1C_IMPRESSION = """
 WITH
@@ -203,6 +242,50 @@ LEFT JOIN success_buids sb ON sb.bright_uid = ut.bright_uid
 LEFT JOIN funnel_imps   fi ON fi.bright_uid = ut.bright_uid
 GROUP BY 1
 ORDER BY enroll_week DESC
+""".replace("{exp_start}", EXP_START)
+
+# 1C (daily) — Impression delivery grouped by enroll date for day-view Report Card.
+SQL_1C_IMPRESSION_DAILY = """
+WITH
+user_treatments AS (
+    SELECT uc.bright_uid,
+           DATE(uc.first_enrolled_on) AS enroll_date
+    FROM iceberg_db.meta_cube__user_current_state AS uc
+    INNER JOIN iceberg_db.brightmoney_backend_master_2__public__bm_users_userstatemachinesessiondata__base AS usm
+        ON usm.user_id = uc.bm_user_id
+    WHERE json_extract_scalar(usm.split_session_data,
+              '$.growth_survey_experiment.treatment') = 'treatment7'
+      AND DATE(uc.first_enrolled_on) >= DATE '{exp_start}'
+    GROUP BY uc.bright_uid, DATE(uc.first_enrolled_on)
+),
+success_buids AS (
+    SELECT DISTINCT ou.bright_uid
+    FROM iceberg_db_views.brightmoney_offers__public__offers_platform_offersessiondetails AS sess
+    LEFT JOIN iceberg_db_views.brightmoney_offers__public__offers_platform_user AS ou
+        ON ou.id = sess.user_id
+    WHERE sess.partner_id = 4
+      AND sess.status IN ('SUCCESS','API_SUCCESS','APPLICATION_SUBMITTED')
+),
+funnel_imps AS (
+    SELECT DISTINCT imp.bright_uid,
+           MAX(CASE WHEN imp.is_clicked = true THEN 1 ELSE 0 END) AS clicked
+    FROM iceberg_db_views.brightmoney_affiliate__public__affiliate_affiliateimpressions AS imp
+    LEFT JOIN iceberg_db_views.brightmoney_affiliate__public__affiliate_affiliateproduct AS ap
+        ON ap.id = imp.affiliate_product_id
+    WHERE imp.source = 'FUNNEL'
+      AND ap.product_name = 'pre_qual_cc'
+    GROUP BY imp.bright_uid
+)
+SELECT
+    ut.enroll_date,
+    COUNT(DISTINCT sb.bright_uid)                                               AS users_with_offers,
+    COUNT(DISTINCT CASE WHEN sb.bright_uid IS NOT NULL THEN fi.bright_uid END)  AS users_with_impression,
+    COUNT(DISTINCT CASE WHEN sb.bright_uid IS NOT NULL AND fi.clicked = 1 THEN fi.bright_uid END) AS users_clicked
+FROM user_treatments ut
+LEFT JOIN success_buids sb ON sb.bright_uid = ut.bright_uid
+LEFT JOIN funnel_imps   fi ON fi.bright_uid = ut.bright_uid
+GROUP BY 1
+ORDER BY enroll_date DESC
 """.replace("{exp_start}", EXP_START)
 
 # 1D — Assignment balance: treatment3 vs treatment7 enrolls per week + debt/CS quality proxy.
@@ -595,6 +678,25 @@ def process_1b(cols, rows):
     return out
 
 
+def process_1b_daily(cols, rows):
+    """API health aggregated by enroll date for day-view Report Card."""
+    records = to_records(cols, rows)
+    by_day = defaultdict(lambda: defaultdict(int))
+    for r in records:
+        day    = parse_week(r["enroll_date"])
+        status = r["status"]
+        cnt    = int(r["user_count"] or 0)
+        by_day[day]["total"] += cnt
+        by_day[day][status]  += cnt
+    out = []
+    for day in sorted(by_day.keys(), reverse=True):
+        d     = by_day[day]
+        total = d["total"]
+        succ  = d.get("SUCCESS", 0) + d.get("API_SUCCESS", 0) + d.get("APPLICATION_SUBMITTED", 0)
+        out.append({"date": day, "total": total, "success": succ})
+    return out
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Layer 1C — Impression delivery
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -618,6 +720,18 @@ def process_1c(cols, rows):
             "ctr":           pct(clicked, imped),
             "impression_rate_of_enrolls": pct(imped, enrolls),
         })
+    return out
+
+
+def process_1c_daily(cols, rows):
+    """Impression delivery aggregated by enroll date for day-view Report Card."""
+    records = to_records(cols, rows)
+    out = []
+    for r in records:
+        day     = parse_week(r["enroll_date"])
+        imped   = int(r["users_with_impression"] or 0)
+        clicked = int(r["users_clicked"]         or 0)
+        out.append({"date": day, "users_with_impression": imped, "users_clicked": clicked})
     return out
 
 
@@ -1494,20 +1608,20 @@ def _agg_0_month(rc_weekly):
     return out
 
 
-def _build_rc_day(funnel_day, rc_weekly):
-    """Day-level funnel counts + weekly api/imp context for each day."""
-    from datetime import datetime, timedelta
-    rc_idx = {r["week"]: r for r in rc_weekly}
+def _build_rc_day(funnel_day, api_daily, imp_daily):
+    """Day-level Report Card using per-day API and impression data."""
+    api_idx = {r["date"]: r for r in api_daily}
+    imp_idx = {r["date"]: r for r in imp_daily}
     out = []
     for fd in funnel_day:
-        dt     = datetime.strptime(fd["week"][:10], "%Y-%m-%d")
-        monday = (dt - timedelta(days=dt.weekday())).strftime("%Y-%m-%d")
-        w  = rc_idx.get(monday, {})
+        day = fd["week"][:10]
         en, t7, el = fd["enroll_count"], fd["t7_count"], fd["eligible_count"]
-        ac  = w.get("api_calls",    0)
-        as_ = w.get("api_success",  0)
-        im  = w.get("impressions",  0)
-        cl  = w.get("clicks",       0)
+        a  = api_idx.get(day, {})
+        i  = imp_idx.get(day, {})
+        ac  = a.get("total",                 0)
+        as_ = a.get("success",               0)
+        im  = i.get("users_with_impression", 0)
+        cl  = i.get("users_clicked",         0)
         out.append({
             "week": fd["week"],
             "enrolls": en,  "t7": t7,  "t7_pct": pct(t7, en),
@@ -1520,7 +1634,7 @@ def _build_rc_day(funnel_day, rc_weekly):
     return out
 
 
-def render_0(rc_data, funnel_day):
+def render_0(rc_data, funnel_day, api_daily, imp_daily):
     def _build(period_data, period):
         rows = list(reversed(period_data))
         lbl  = [r["week"] if period == "month" else r["week"][-5:] for r in rows]
@@ -1564,7 +1678,7 @@ def render_0(rc_data, funnel_day):
         }
 
     views = {
-        "day":   _build(_build_rc_day(funnel_day, rc_data), "day"),
+        "day":   _build(_build_rc_day(funnel_day, api_daily, imp_daily), "day"),
         "week":  _build(rc_data, "week"),
         "month": _build(_agg_0_month(rc_data), "month"),
     }
@@ -1820,7 +1934,7 @@ def generate_html(data):
     html = HTML_TEMPLATE.format(
         exp_start    = EXP_START,
         refresh_date = date.today().strftime("%B %d, %Y"),
-        content_0    = render_0(data["rc"], data["funnel"]),
+        content_0    = render_0(data["rc"], data["funnel"], data["api_daily"], data["imp_daily"]),
         content_1a   = render_1a(data["funnel"]),
         content_1b   = render_1b(data["api_health"]),
         content_1c   = render_1c(data["impression"]),
@@ -1854,7 +1968,9 @@ def main():
     queries = [
         ("1A Funnel",        SQL_1A_FUNNEL),
         ("1B API Health",    SQL_1B_API_HEALTH),
+        ("1B API Daily",     SQL_1B_API_HEALTH_DAILY),
         ("1C Impressions",   SQL_1C_IMPRESSION),
+        ("1C Imp Daily",     SQL_1C_IMPRESSION_DAILY),
         ("1D Balance",       SQL_1D_BALANCE),
         ("1E User Overlap",  SQL_1E_USER_OVERLAP),
         ("2A Base RPU",      SQL_BASE_RPU),
@@ -1877,7 +1993,9 @@ def main():
     funnel_data  = process_1a(*results["1A Funnel"])   # day-level
     funnel_weekly = agg_1a(funnel_data, "week")         # week-level for report card
     api_data     = process_1b(*results["1B API Health"])
+    api_daily    = process_1b_daily(*results["1B API Daily"])
     imp_data     = process_1c(*results["1C Impressions"])
+    imp_daily    = process_1c_daily(*results["1C Imp Daily"])
     bal_data     = process_1d(*results["1D Balance"])
     overlap_data = process_1e(*results["1E User Overlap"])
     rpu_rows, cumul = process_2a(*results["2A Base RPU"], c1b_map)
@@ -1888,7 +2006,9 @@ def main():
     all_data = {
         "funnel":     funnel_data,
         "api_health": api_data,
+        "api_daily":  api_daily,
         "impression": imp_data,
+        "imp_daily":  imp_daily,
         "balance":    bal_data,
         "overlap":    overlap_data,
         "rc":         rc_data,
