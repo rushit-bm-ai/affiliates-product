@@ -1,10 +1,13 @@
-"""Affiliates Recon — daily email report (Reports→Invoice + Invoice→Cash)."""
+"""Affiliates Recon — email report HTML builder + SMTP sender."""
 
 import json
 import os
 import smtplib
+import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config
 
@@ -42,7 +45,6 @@ def _badge(status):
             f'font-size:9.5px;font-weight:700;white-space:nowrap">{status or "—"}</span>')
 
 def _variance_badge(monthly_status, status):
-    """Variance status badge: color from status (GREEN/AMBER/RED), label from monthly_status (Low/Medium/High)."""
     m = {"GREEN":("#dcfce7","#0f4625"),"AMBER":("#fef3c7","#92400e"),
          "RED":("#fef2f2","#b91c1c")}
     bg,fg = m.get((status or "").upper(),("#f1f5f9","#5c626e"))
@@ -64,7 +66,7 @@ TDBC= f'{TDB};text-align:center'
 
 # ── Change detection ──────────────────────────────────────────────────────────
 def compute_changes(prev_l3, curr_l3):
-    """Compare l3 snapshots → new_invoices and new_cash (kept for compatibility)."""
+    """Compare l3 snapshots → new_invoices and new_cash."""
     empty = {"new_invoices": [], "new_cash": []}
     if not prev_l3 or not curr_l3:
         return empty
@@ -113,7 +115,6 @@ def compute_l1_changes(prev_l1, curr_l1):
 
 # ── Section 1 builders (Reports → Invoice, blue) ─────────────────────────────
 def _s1_kpis(monthly_detail, close_month):
-    """KPIs scoped to the close month only (current month − 1)."""
     rows = [r for r in monthly_detail if r.get("payout_month") == close_month]
     rep  = sum(r.get("reports_amount") or 0 for r in rows)
     inv  = sum(r.get("invoice_amount") or 0 for r in rows)
@@ -417,7 +418,6 @@ def _s2_table3(ytr_list):
 
 
 def _s2_table2_variance(collected):
-    """Top 5 HIGH→MEDIUM variance entries from collected cash, with status and comments."""
     order = {"high": 0, "medium": 1}
     rows = [r for r in collected if (r.get("status") or "").lower() in order]
     rows = sorted(rows, key=lambda r: (order[(r.get("status") or "").lower()],
@@ -472,7 +472,7 @@ def _s2_table2_variance(collected):
 </div>"""
 
 
-# ── Section divider ───────────────────────────────────────────────────────────
+# ── Layout helpers ────────────────────────────────────────────────────────────
 def _divider(num, title, subtitle, accent):
     return f"""
 <tr><td style="padding:28px 36px 0">
@@ -495,7 +495,6 @@ def _divider(num, title, subtitle, accent):
 </td></tr>"""
 
 
-# ── Subsection header ─────────────────────────────────────────────────────────
 def _sub(title, subtitle, accent, badge=None):
     bdg = (f' <span style="background:{accent}22;color:{accent};padding:2px 9px;border-radius:20px;'
            f'font-size:9.5px;font-weight:700;border:1px solid {accent}55">{badge}</span>') if badge else ""
@@ -556,7 +555,6 @@ def generate_email_html(l3, l1=None, changes=None, l1_changes=None, stale=False,
             f'</div></td></tr>'
         )
 
-    # Header change pills (inline-block for email compat)
     pills = ""
     if l1_chg:
         pills += (f'<span style="display:inline-block;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);'

@@ -1,13 +1,14 @@
-"""Jinja2-based HTML dashboard renderer — v2 visual upgrade."""
+"""Jinja2-based HTML dashboard renderer."""
 
 import os
 import json
-from datetime import datetime
+import sys
+from datetime import datetime, timedelta
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import yaml
 from jinja2 import Template
-
-from datetime import timedelta
 
 import config
 
@@ -1702,10 +1703,11 @@ def main(close_month=None):
         return None
 
     def read_sql(filename):
-        p = os.path.join(config.QUERIES_DIR, filename)
-        if os.path.exists(p):
-            with open(p) as f:
-                return f.read().strip()
+        for d in (config.RECON_QUERIES_DIR, config.MONITOR_QUERIES_DIR):
+            p = os.path.join(d, filename)
+            if os.path.exists(p):
+                with open(p) as f:
+                    return f.read().strip()
         return f"-- {filename} not found"
 
     l1 = load_json("l1_results.json")

@@ -1,11 +1,13 @@
-"""All reconciliation computation logic."""
+"""Recon computation — Reports vs Invoice and Invoice vs Cash."""
 
-import os
 import json
+import os
+import sys
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
-import requests
 
 import config
 
@@ -14,7 +16,7 @@ def _save_json(filename, data):
     path = os.path.join(config.COMPUTED_DIR, filename)
     with open(path, "w") as f:
         json.dump(data, f, indent=2, default=str)
-    print(f"[compute] Written → {filename}")
+    print(f"[recon.compute] Written → {filename}")
 
 
 def _load_google_sheet():
@@ -98,24 +100,21 @@ def _load_reports_data():
 
 def compute_reports_vs_invoice(close_month):
     """Reports (Metabase) vs Invoice (Google Sheet) — full outer join on (payout_month, partner, cycle)."""
-    print(f"[compute] Reports vs Invoice (close_month={close_month})")
+    print(f"[recon.compute] Reports vs Invoice (close_month={close_month})")
 
     reports = _load_reports_data()
 
-    # Load invoice data from Google Sheet
     try:
         gdf = _load_google_sheet()
     except Exception as e:
-        print(f"[compute] WARNING: Google Sheet failed for Reports vs Invoice: {e}")
+        print(f"[recon.compute] WARNING: Google Sheet failed for Reports vs Invoice: {e}")
         gdf = pd.DataFrame()
 
-    # Build reports lookup: (payout_month, partner, cycle) -> reports_revenue
     reports_lookup = {}
     for _, row in reports.iterrows():
         key = (row["payout_month"], row["partner"], row["cycle"])
         reports_lookup[key] = reports_lookup.get(key, 0) + float(row["reports_revenue"])
 
-    # Build invoice lookup: (payout_month, partner, cycle) -> $ Billed
     invoice_lookup = {}
     if len(gdf) > 0:
         for _, row in gdf.iterrows():
@@ -130,7 +129,6 @@ def compute_reports_vs_invoice(close_month):
             key = (month, partner, cycle)
             invoice_lookup[key] = invoice_lookup.get(key, 0) + float(billed)
 
-    # Full outer join on (payout_month, partner, cycle)
     all_keys = set(list(reports_lookup.keys()) + list(invoice_lookup.keys()))
 
     monthly_detail = []
@@ -173,11 +171,9 @@ def compute_reports_vs_invoice(close_month):
             "monthly_color":  monthly_color,
         })
 
-    # Sort: month desc, partner asc, cycle asc
     monthly_detail.sort(key=lambda r: (r["partner"], r["cycle"]))
     monthly_detail.sort(key=lambda r: r["payout_month"], reverse=True)
 
-    # Cumulative by partner
     cumulative = []
     for partner in sorted(set(r["partner"] for r in monthly_detail)):
         prows = [r for r in monthly_detail if r["partner"] == partner]
@@ -194,7 +190,6 @@ def compute_reports_vs_invoice(close_month):
             "month_count": len(set(r["payout_month"] for r in prows)),
         })
 
-    # Grand total
     gt_rep = sum(r["total_reports"] for r in cumulative)
     gt_inv = sum(r["total_invoice"] for r in cumulative)
     gt_delta = round(gt_inv - gt_rep, 2)
@@ -206,7 +201,6 @@ def compute_reports_vs_invoice(close_month):
         "month_count": len(set(r["payout_month"] for r in monthly_detail)),
     }
 
-    # Overall status
     statuses = [r["status"] for r in cumulative if r["status"]]
     overall = "GREEN"
     if "RED" in statuses:
@@ -220,16 +214,12 @@ def compute_reports_vs_invoice(close_month):
         "grand_total": grand_total, "overall_status": overall,
     }
     _save_json("l1_results.json", result)
-    print(f"[compute] Reports vs Invoice complete — {len(monthly_detail)} rows, overall: {overall}")
+    print(f"[recon.compute] Reports vs Invoice complete — {len(monthly_detail)} rows, overall: {overall}")
     return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Validation
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def validate_inputs(close_month):
-    print(f"[compute] Validation (close_month={close_month})")
+    print(f"[recon.compute] Validation (close_month={close_month})")
     cleaning_log = []
 
     def log_step(action, detail, status="PASS"):
@@ -238,7 +228,6 @@ def validate_inputs(close_month):
     reports = _load_reports_data()
     log_step("Load reports data", f"{len(reports)} rows loaded from reports_by_payout_cycle.csv")
 
-    # Try loading Google Sheet for validation
     gsheet_rows = 0
     try:
         gdf = _load_google_sheet()
@@ -282,7 +271,6 @@ def validate_inputs(close_month):
         "month_range": {"min": "—", "max": "—"}, "status": "PASS" if gsheet_rows > 0 else "FAIL",
     })
 
-    # Partner coverage
     reports_partners = set(reports["partner"].unique())
     partner_coverage = []
     for p in config.EXPECTED_PARTNERS:
@@ -309,16 +297,11 @@ def validate_inputs(close_month):
         "cleaning_log": cleaning_log, "overall_status": overall,
     }
     _save_json("validation_report.json", report)
-    print(f"[compute] Validation complete — overall: {overall}")
+    print(f"[recon.compute] Validation complete — overall: {overall}")
     return report
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Invoice vs Cash (Live Google Sheet)
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def _parse_accel_charge(partner):
-    """Parse acceleration charge rate from PARTNER_CONFIG. '3%' -> 0.03, '—' -> 0."""
     cfg = config.PARTNER_CONFIG.get(partner, {})
     charge_str = cfg.get("accel_charge", "—")
     if charge_str in ("—", "", None):
@@ -348,9 +331,9 @@ def _delta_color(received, billed):
 
 
 def compute_invoice_vs_cash_live(close_month):
-    print(f"[compute] Invoice vs Cash — Live Google Sheet")
+    print(f"[recon.compute] Invoice vs Cash — Live Google Sheet")
     df = _load_google_sheet()
-    print(f"[compute]   Pulled {len(df)} rows from Google Sheet")
+    print(f"[recon.compute]   Pulled {len(df)} rows from Google Sheet")
 
     df["collection_month"] = pd.to_datetime(df["Collection time period"], errors="coerce").dt.strftime("%Y-%m")
 
@@ -386,7 +369,6 @@ def compute_invoice_vs_cash_live(close_month):
             "cycle": str(row.get("Cycle", "C1")).strip().upper() or "C1",
         }
 
-        # Compute net delta post acceleration charges
         accel_rate = _parse_accel_charge(row["partner_canonical"])
         if has_received and delta is not None:
             net_delta_val = round(delta + (accel_rate * billed), 2)
@@ -424,7 +406,6 @@ def compute_invoice_vs_cash_live(close_month):
         partner_ytr = [r for r in yet_to_receive if r["partner"] == partner]
         ytr_total = round(sum(r["billed"] for r in partner_ytr), 2)
         ytr_details = [{"payout_month": r["payout_month"], "amount": r["billed"], "expected_collection": r["expected_collection"]} for r in partner_ytr]
-        # Net delta = sum of net_delta (post accel) from collected rows for this partner
         partner_collected = [r for r in collected if r["partner"] == partner]
         net_delta = round(sum(r["net_delta"] for r in partner_collected if r["net_delta"] is not None), 2)
         collection_pct = round(total_received / total_billed * 100, 2) if total_billed != 0 else None
@@ -461,141 +442,5 @@ def compute_invoice_vs_cash_live(close_month):
         "cumulative": cumulative, "grand_total": grand_total, "overall_status": overall,
     }
     _save_json("l3_live_results.json", result)
-    print(f"[compute] Invoice vs Cash complete — {len(yet_to_receive)} yet-to-receive, {len(collected)} collected")
-    return result
-
-
-def compute_monitor():
-    """Load daily/weekly/monthly payout CSVs and compute KPIs for the Monitor tab."""
-    print("[compute] Monitor data")
-    from datetime import timedelta
-
-    daily_file   = config.QUERIES["daily_by_partner"]["file"]
-    weekly_file  = config.QUERIES["weekly_by_partner"]["file"]
-    monthly_file = config.QUERIES["monthly_by_partner"]["file"]
-
-    daily   = pd.read_csv(daily_file)   if os.path.exists(daily_file)   else pd.DataFrame(columns=["date","partner","payout"])
-    weekly  = pd.read_csv(weekly_file)  if os.path.exists(weekly_file)  else pd.DataFrame(columns=["week_start","partner","payout"])
-    monthly = pd.read_csv(monthly_file) if os.path.exists(monthly_file) else pd.DataFrame(columns=["month","partner","payout"])
-
-    daily["payout"]   = pd.to_numeric(daily["payout"],   errors="coerce").fillna(0)
-    weekly["payout"]  = pd.to_numeric(weekly["payout"],  errors="coerce").fillna(0)
-    monthly["payout"] = pd.to_numeric(monthly["payout"], errors="coerce").fillna(0)
-
-    today      = datetime.now().date()
-    week_start = today - timedelta(days=today.weekday())   # Monday of current week
-    month_start = today.replace(day=1)
-
-    wtd_total = round(float(daily[daily["date"] >= str(week_start)]["payout"].sum()), 2)
-    mtd_total = round(float(daily[daily["date"] >= str(month_start)]["payout"].sum()), 2)
-
-    # WoW: current WTD vs same days last week
-    days_so_far     = (today - week_start).days + 1
-    lw_start        = week_start - timedelta(weeks=1)
-    lw_same_end     = lw_start + timedelta(days=days_so_far - 1)
-    lw_same_total   = round(float(
-        daily[(daily["date"] >= str(lw_start)) & (daily["date"] <= str(lw_same_end))]["payout"].sum()
-    ), 2)
-    wow_pct = round((wtd_total - lw_same_total) / lw_same_total * 100, 1) if lw_same_total else None
-
-    # Last full week (Mon–Sun) vs last-to-last full week (Mon–Sun)
-    lfw_end         = week_start - timedelta(days=1)          # last Sunday
-    lfw_start       = lfw_end - timedelta(days=6)             # last Monday
-    lfw_total       = round(float(
-        daily[(daily["date"] >= str(lfw_start)) & (daily["date"] <= str(lfw_end))]["payout"].sum()
-    ), 2)
-    lltw_end        = lfw_start - timedelta(days=1)
-    lltw_start      = lltw_end - timedelta(days=6)
-    lltw_total      = round(float(
-        daily[(daily["date"] >= str(lltw_start)) & (daily["date"] <= str(lltw_end))]["payout"].sum()
-    ), 2)
-    lw_vs_llw_pct   = round((lfw_total - lltw_total) / lltw_total * 100, 1) if lltw_total else None
-
-    result = {
-        "kpis": {
-            "wtd":  {
-                "total": wtd_total, "week_start": str(week_start),
-                "wow_pct": wow_pct, "lw_same_total": lw_same_total,
-                "lfw_total": lfw_total, "lfw_start": str(lfw_start), "lfw_end": str(lfw_end),
-                "lltw_total": lltw_total, "lw_vs_llw_pct": lw_vs_llw_pct,
-            },
-            "mtd":  {"total": mtd_total, "month_start": str(month_start)},
-        },
-        "daily":   daily.to_dict(orient="records"),
-        "weekly":  weekly.to_dict(orient="records"),
-        "monthly": monthly.to_dict(orient="records"),
-    }
-    _save_json("monitor_data.json", result)
-    print(f"[compute] Monitor data complete — {len(daily)} daily rows, {len(weekly)} weekly rows, {len(monthly)} monthly rows")
-    return result
-
-
-def compute_enrolls():
-    """Fetch enrolls rollup data from Metabase and save to enroll_data.json."""
-    resp = requests.post(
-        f"{config.METABASE_HOST}/api/session",
-        json={"username": config.METABASE_USERNAME, "password": config.METABASE_PASSWORD},
-        timeout=60,
-    )
-    resp.raise_for_status()
-    token = resp.json()["id"]
-
-    def run_q(sql):
-        r = requests.post(
-            f"{config.METABASE_HOST}/api/dataset",
-            headers={"X-Metabase-Session": token, "Content-Type": "application/json"},
-            json={"database": config.METABASE_DATABASE_ID, "type": "native", "native": {"query": sql}},
-            timeout=300,
-        )
-        r.raise_for_status()
-        data = r.json()
-        if data.get("error"):
-            raise RuntimeError(data["error"])
-        cols = [c["name"] for c in data["data"]["cols"]]
-        result = []
-        for row in data["data"]["rows"]:
-            obj = {}
-            for c, v in zip(cols, row):
-                if isinstance(v, str) and v.endswith("T00:00:00Z"):
-                    v = v[:10]
-                obj[c] = v
-            result.append(obj)
-        return result
-
-    PC = ("case when partner='AmoneAPI' then 'AmONE' when partner='PBrigit' then 'Brigit' "
-          "when partner='Pkashkick' then 'Kashkick' when partner='PSupermoney' then 'SuperMoney' "
-          "when partner='PFreecash' then 'Freecash' else partner end")
-    BASE   = "iceberg_db.affiliate__revenue_uid_enriched_v0"
-    FILTER = "first_enrolled_on is not null and enrol_status='Enrol'"
-
-    print("[compute] Enrolls data")
-    raw = run_q(
-        f"select date(first_enrolled_on) as enroll_date, {PC} as partner, "
-        f"coalesce(imp_source,'(none)') as imp_source, payout_cohort_bucket, "
-        f"count(distinct bright_uid) as enrolled_users, count(distinct api_lead_id) as total_leads, "
-        f"round(sum(payout),2) as total_payout, round(avg(payout),2) as avg_payout "
-        f"from {BASE} where {FILTER} and first_enrolled_on >= current_date - interval '30' day "
-        f"group by 1,2,3,4 order by 1 desc,2,3,4"
-    )
-    monthly = run_q(
-        f"select date_format(date_trunc('month',cast(first_enrolled_on as timestamp)),'%Y-%m') as enroll_month, "
-        f"{PC} as partner, count(distinct bright_uid) as enrolled_users "
-        f"from {BASE} where {FILTER} group by 1,2 order by 1,2"
-    )
-    cohort = run_q(
-        f"select date_format(date_trunc('month',cast(first_enrolled_on as timestamp)),'%Y-%m') as enroll_month, "
-        f"payout_cohort_bucket, count(distinct bright_uid) as enrolled_users, "
-        f"round(sum(coalesce(payout,0)),2) as total_payout "
-        f"from {BASE} where {FILTER} group by 1,2 order by 1,2"
-    )
-    imp = run_q(
-        f"select date_format(date_trunc('month',cast(first_enrolled_on as timestamp)),'%Y-%m') as enroll_month, "
-        f"coalesce(imp_source,'(none)') as imp_source, count(distinct bright_uid) as enrolled_users "
-        f"from {BASE} where {FILTER} group by 1,2 order by 1,2"
-    )
-
-    result = {"raw": raw, "monthly": monthly, "cohort": cohort, "imp": imp}
-    _save_json("enroll_data.json", result)
-    print(f"[compute] Enrolls complete — {len(raw)} raw, {len(monthly)} monthly, "
-          f"{len(cohort)} cohort, {len(imp)} imp rows")
+    print(f"[recon.compute] Invoice vs Cash complete — {len(yet_to_receive)} yet-to-receive, {len(collected)} collected")
     return result

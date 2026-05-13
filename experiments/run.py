@@ -437,6 +437,103 @@ CROSS JOIN (SELECT total FROM totals WHERE treatment = 'treatment7') tt
 ORDER BY (bs.control_count + bs.test_count) DESC
 """.replace("{exp_start}", EXP_START)
 
+# 1F — Application Completion: clicked T7 users → last C1B API status = APPLICATION_SUBMITTED.
+# Weekly query — groups by enroll week.
+SQL_1F_APP_COMPLETION = """
+WITH
+user_treatments AS (
+    SELECT uc.bright_uid,
+           date_trunc('week', uc.first_enrolled_on) AS enroll_week
+    FROM iceberg_db.meta_cube__user_current_state AS uc
+    INNER JOIN iceberg_db.brightmoney_backend_master_2__public__bm_users_userstatemachinesessiondata__base AS usm
+        ON usm.user_id = uc.bm_user_id
+    WHERE json_extract_scalar(usm.split_session_data,
+              '$.growth_survey_experiment.treatment') = 'treatment7'
+      AND DATE(uc.first_enrolled_on) >= DATE '{exp_start}'
+    GROUP BY uc.bright_uid, date_trunc('week', uc.first_enrolled_on)
+),
+clicked_users AS (
+    SELECT DISTINCT imp.bright_uid
+    FROM iceberg_db_views.brightmoney_affiliate__public__affiliate_affiliateimpressions AS imp
+    LEFT JOIN iceberg_db_views.brightmoney_affiliate__public__affiliate_affiliateproduct AS ap
+        ON ap.id = imp.affiliate_product_id
+    WHERE imp.is_clicked = true
+      AND imp.source = 'FUNNEL'
+      AND ap.product_name = 'pre_qual_cc'
+),
+last_api_per_user AS (
+    SELECT
+        ou.bright_uid,
+        sess.status,
+        ROW_NUMBER() OVER (
+            PARTITION BY ou.bright_uid
+            ORDER BY sess.created_date DESC
+        ) AS rn
+    FROM iceberg_db_views.brightmoney_offers__public__offers_platform_offersessiondetails AS sess
+    LEFT JOIN iceberg_db_views.brightmoney_offers__public__offers_platform_user AS ou
+        ON ou.id = sess.user_id
+    WHERE sess.partner_id = 4
+)
+SELECT
+    ut.enroll_week,
+    COUNT(DISTINCT cu.bright_uid)                                                           AS users_clicked,
+    COUNT(DISTINCT CASE WHEN las.status IS NOT NULL THEN cu.bright_uid END)                 AS users_with_api_status,
+    COUNT(DISTINCT CASE WHEN las.status = 'APPLICATION_SUBMITTED' THEN cu.bright_uid END)   AS users_app_submitted
+FROM user_treatments ut
+INNER JOIN clicked_users cu ON cu.bright_uid = ut.bright_uid
+LEFT JOIN (SELECT * FROM last_api_per_user WHERE rn = 1) las ON las.bright_uid = cu.bright_uid
+GROUP BY 1
+ORDER BY enroll_week DESC
+""".replace("{exp_start}", EXP_START)
+
+# 1F (daily) — Application Completion grouped by enroll date for day-view.
+SQL_1F_APP_COMPLETION_DAILY = """
+WITH
+user_treatments AS (
+    SELECT uc.bright_uid,
+           DATE(uc.first_enrolled_on) AS enroll_date
+    FROM iceberg_db.meta_cube__user_current_state AS uc
+    INNER JOIN iceberg_db.brightmoney_backend_master_2__public__bm_users_userstatemachinesessiondata__base AS usm
+        ON usm.user_id = uc.bm_user_id
+    WHERE json_extract_scalar(usm.split_session_data,
+              '$.growth_survey_experiment.treatment') = 'treatment7'
+      AND DATE(uc.first_enrolled_on) >= DATE '{exp_start}'
+    GROUP BY uc.bright_uid, DATE(uc.first_enrolled_on)
+),
+clicked_users AS (
+    SELECT DISTINCT imp.bright_uid
+    FROM iceberg_db_views.brightmoney_affiliate__public__affiliate_affiliateimpressions AS imp
+    LEFT JOIN iceberg_db_views.brightmoney_affiliate__public__affiliate_affiliateproduct AS ap
+        ON ap.id = imp.affiliate_product_id
+    WHERE imp.is_clicked = true
+      AND imp.source = 'FUNNEL'
+      AND ap.product_name = 'pre_qual_cc'
+),
+last_api_per_user AS (
+    SELECT
+        ou.bright_uid,
+        sess.status,
+        ROW_NUMBER() OVER (
+            PARTITION BY ou.bright_uid
+            ORDER BY sess.created_date DESC
+        ) AS rn
+    FROM iceberg_db_views.brightmoney_offers__public__offers_platform_offersessiondetails AS sess
+    LEFT JOIN iceberg_db_views.brightmoney_offers__public__offers_platform_user AS ou
+        ON ou.id = sess.user_id
+    WHERE sess.partner_id = 4
+)
+SELECT
+    ut.enroll_date,
+    COUNT(DISTINCT cu.bright_uid)                                                           AS users_clicked,
+    COUNT(DISTINCT CASE WHEN las.status IS NOT NULL THEN cu.bright_uid END)                 AS users_with_api_status,
+    COUNT(DISTINCT CASE WHEN las.status = 'APPLICATION_SUBMITTED' THEN cu.bright_uid END)   AS users_app_submitted
+FROM user_treatments ut
+INNER JOIN clicked_users cu ON cu.bright_uid = ut.bright_uid
+LEFT JOIN (SELECT * FROM last_api_per_user WHERE rn = 1) las ON las.bright_uid = cu.bright_uid
+GROUP BY 1
+ORDER BY enroll_date DESC
+""".replace("{exp_start}", EXP_START)
+
 # 2A / 2C / 4A — Base affiliate payout per enroll_week × treatment (no C1B bounty).
 SQL_BASE_RPU = """
 WITH
@@ -988,6 +1085,72 @@ def process_1e(cols, rows):
             "test_count":  test_n,
             "test_pct":    float(r["test_pct"]    or 0),
             "delta_pct":   round(float(r["test_pct"] or 0) - float(r["control_pct"] or 0), 2),
+        })
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Layer 1F — Application Completion
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def process_1f(cols, rows):
+    records = to_records(cols, rows)
+    out = []
+    for r in records:
+        wk       = parse_week(r["enroll_week"])
+        clicked  = int(r["users_clicked"]         or 0)
+        with_api = int(r["users_with_api_status"] or 0)
+        subm     = int(r["users_app_submitted"]   or 0)
+        out.append({
+            "week":            wk,
+            "users_clicked":   clicked,
+            "users_with_api":  with_api,
+            "users_submitted": subm,
+            "conversion_pct":  pct(subm,     clicked),
+            "api_rate":        pct(with_api, clicked),
+        })
+    return out
+
+
+def process_1f_daily(cols, rows):
+    records = to_records(cols, rows)
+    out = []
+    for r in records:
+        day      = parse_week(r["enroll_date"])
+        clicked  = int(r["users_clicked"]         or 0)
+        with_api = int(r["users_with_api_status"] or 0)
+        subm     = int(r["users_app_submitted"]   or 0)
+        out.append({
+            "week":            day,
+            "users_clicked":   clicked,
+            "users_with_api":  with_api,
+            "users_submitted": subm,
+            "conversion_pct":  pct(subm,     clicked),
+            "api_rate":        pct(with_api, clicked),
+        })
+    return out
+
+
+def agg_1f(records, period):
+    """Aggregate weekly 1F records into monthly buckets, recomputing rates from raw counts."""
+    if period == "week":
+        return records
+    buckets = defaultdict(lambda: defaultdict(int))
+    for r in records:
+        key = r["week"][:7] if period == "month" else r["week"][:10]
+        for col in ("users_clicked", "users_with_api", "users_submitted"):
+            buckets[key][col] += r[col]
+    out = []
+    for key in sorted(buckets.keys(), reverse=True):
+        b = buckets[key]
+        cl, wa, sub = b["users_clicked"], b["users_with_api"], b["users_submitted"]
+        out.append({
+            "week":            key,
+            "users_clicked":   cl,
+            "users_with_api":  wa,
+            "users_submitted": sub,
+            "conversion_pct":  pct(sub, cl),
+            "api_rate":        pct(wa,  cl),
         })
     return out
 
@@ -1687,6 +1850,101 @@ def render_1e(data):
 {scripts}"""
 
 
+def render_1f(app_weekly, app_daily):
+    def _build(data):
+        lbl = [r["week"][-5:] for r in data]
+        tbl = table_html(
+            ["Period", "Users Clicked", "With API Status", "App Submitted", "Click→Submit %", "API Rate %"],
+            [[r["week"], r["users_clicked"], r["users_with_api"],
+              r["users_submitted"],
+              fmt_pct(r["conversion_pct"]),
+              fmt_pct(r["api_rate"])]
+             for r in data],
+            col_classes=["", "", "", "positive", "positive", ""],
+        )
+        return {
+            "labels":  lbl,
+            "vol_ds":  [[r["users_clicked"]   for r in data],
+                        [r["users_submitted"] for r in data]],
+            "rate_ds": [[r["conversion_pct"]  for r in data]],
+            "tbl":     tbl,
+        }
+
+    views = {
+        "day":   _build(app_daily),
+        "week":  _build(app_weekly),
+        "month": _build(agg_1f(app_weekly, "month")),
+    }
+    dw = views["week"]
+
+    cid1 = next_chart_id()
+    cid2 = next_chart_id()
+    tid  = f"tbl1f_{cid1}"
+
+    vol_cfg = {
+        "type": "bar",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Users Clicked",  "data": dw["vol_ds"][0], "backgroundColor": CHART_COLORS["test"]},
+            {"label": "App Submitted",  "data": dw["vol_ds"][1], "backgroundColor": CHART_COLORS["c1b"]},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "Click → Application Submitted volume", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}}, "y": {"ticks": {"font": {"size": 10}}}}},
+    }
+    rate_cfg = {
+        "type": "line",
+        "data": {"labels": dw["labels"], "datasets": [
+            {"label": "Click → Submit %", "data": dw["rate_ds"][0],
+             "borderColor": CHART_COLORS["c1b"], "backgroundColor": "rgba(22,163,74,0.1)",
+             "fill": True, "tension": 0.3, "pointRadius": 5},
+        ]},
+        "options": {"responsive": True, "maintainAspectRatio": False,
+            "plugins": {"title": {"display": True, "text": "Application completion rate (%)", "font": {"size": 12}},
+                        "legend": {"position": "top", "labels": {"boxWidth": 12, "font": {"size": 11}}}},
+            "scales": {"x": {"ticks": {"font": {"size": 10}}},
+                       "y": {"min": 0, "max": 100, "ticks": {"font": {"size": 10}}}}},
+    }
+
+    js_views      = {p: {k: v for k, v in views[p].items() if k != "tbl"} for p in views}
+    js_tbls       = {p: views[p]["tbl"] for p in views}
+    vol_cfg_json   = json.dumps(vol_cfg)
+    rate_cfg_json  = json.dumps(rate_cfg)
+    js_views_json  = json.dumps(js_views)
+    js_tbls_json   = json.dumps(js_tbls)
+
+    script = f"""
+<script>
+(function(){{
+  var ctx1 = document.getElementById('{cid1}').getContext('2d');
+  var chart1 = new Chart(ctx1, {vol_cfg_json});
+  var ctx2 = document.getElementById('{cid2}').getContext('2d');
+  var chart2 = new Chart(ctx2, {rate_cfg_json});
+  var _views = {js_views_json};
+  var _tbls  = {js_tbls_json};
+  function applyGrain(grain) {{
+    var d = _views[grain] || _views['week'];
+    chart1.data.labels = d.labels;
+    d.vol_ds.forEach(function(vals, i) {{ chart1.data.datasets[i].data = vals; }});
+    chart1.update();
+    chart2.data.labels = d.labels;
+    d.rate_ds.forEach(function(vals, i) {{ chart2.data.datasets[i].data = vals; }});
+    chart2.update();
+    document.getElementById('{tid}').innerHTML = _tbls[grain] || _tbls['week'];
+  }}
+  window._grainHandlers.push(applyGrain);
+}})();
+</script>"""
+
+    return f"""
+<div class="view-grid">
+{view_card("Click → App Submitted Volume", canvas(cid1))}
+{view_card("Application Completion Rate (%)", canvas(cid2))}
+</div>
+{view_card("Application Completion Table", f'<div id="{tid}">{dw["tbl"]}</div>', full_width=True)}
+{script}"""
+
+
 def render_2a(data, cumul):
     def _build(rows):
         rev = list(reversed(rows))  # oldest → newest for chart
@@ -1981,11 +2239,12 @@ def render_4a(data):
 #  Layer 0 — Report Card
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def process_0(funnel_data, api_data, imp_data, rpu_rows):
+def process_0(funnel_data, api_data, imp_data, rpu_rows, app_comp_data=None):
     funnel_idx = {r["week"]: r for r in funnel_data}
     api_idx    = {r["week"]: r for r in api_data}
     imp_idx    = {r["week"]: r for r in imp_data}
     rpu_idx    = {r["week"]: r for r in rpu_rows}
+    app_idx    = {r["week"]: r for r in (app_comp_data or [])}
 
     all_weeks = sorted(
         set(funnel_idx) | set(api_idx) | set(imp_idx) | set(rpu_idx),
@@ -1998,6 +2257,7 @@ def process_0(funnel_data, api_data, imp_data, rpu_rows):
         a = api_idx.get(wk, {})
         i = imp_idx.get(wk, {})
         r = rpu_idx.get(wk, {})
+        ap = app_idx.get(wk, {})
 
         enrolls  = f.get("enroll_count", 0)
         t7       = f.get("t7_count", 0)
@@ -2006,8 +2266,9 @@ def process_0(funnel_data, api_data, imp_data, rpu_rows):
         api_calls = a.get("total", 0)
         api_succ  = a.get("success", 0)
 
-        imps   = i.get("users_with_impression", 0)
-        clicks = i.get("users_clicked", 0)
+        imps      = i.get("users_with_impression", 0)
+        clicks    = i.get("users_clicked", 0)
+        submitted = ap.get("users_submitted", 0)
 
         test_rpu  = r.get("test_rpu",  0.0)
         ctrl_rpu  = r.get("ctrl_rpu",  0.0)
@@ -2029,6 +2290,8 @@ def process_0(funnel_data, api_data, imp_data, rpu_rows):
             "imp_pct":         pct(imps,      api_succ),
             "clicks":          clicks,
             "ctr":             pct(clicks,    imps),
+            "users_submitted": submitted,
+            "submit_pct":      pct(submitted, clicks),
             "test_rpu":        test_rpu,
             "ctrl_rpu":        ctrl_rpu,
             "delta_rpu":       delta_rpu,
@@ -2041,14 +2304,15 @@ def _agg_0_month(rc_weekly):
     buckets = defaultdict(lambda: defaultdict(float))
     for r in rc_weekly:
         key = r["week"][:7]
-        for col in ("enrolls", "t7", "eligible", "api_calls", "api_success", "impressions", "clicks"):
-            buckets[key][col] += r[col]
+        for col in ("enrolls", "t7", "eligible", "api_calls", "api_success",
+                    "impressions", "clicks", "users_submitted"):
+            buckets[key][col] += r.get(col, 0)
     out = []
     for key in sorted(buckets.keys(), reverse=True):
         b  = buckets[key]
         en, t7, el = int(b["enrolls"]), int(b["t7"]), int(b["eligible"])
         ac, as_ = int(b["api_calls"]), int(b["api_success"])
-        im, cl  = int(b["impressions"]), int(b["clicks"])
+        im, cl, sub = int(b["impressions"]), int(b["clicks"]), int(b["users_submitted"])
         out.append({
             "week": key,
             "enrolls": en,  "t7": t7,  "t7_pct": pct(t7, en),
@@ -2057,24 +2321,28 @@ def _agg_0_month(rc_weekly):
             "api_success": as_, "api_succ_pct": pct(as_, ac),
             "impressions": im, "imp_pct": pct(im, as_),
             "clicks": cl,      "ctr": pct(cl, im),
+            "users_submitted": sub, "submit_pct": pct(sub, cl),
         })
     return out
 
 
-def _build_rc_day(funnel_day, api_daily, imp_daily):
-    """Day-level Report Card using per-day API and impression data."""
+def _build_rc_day(funnel_day, api_daily, imp_daily, app_comp_daily=None):
+    """Day-level Report Card using per-day API, impression, and app completion data."""
     api_idx = {r["date"]: r for r in api_daily}
     imp_idx = {r["date"]: r for r in imp_daily}
+    app_idx = {r["week"]: r for r in (app_comp_daily or [])}
     out = []
     for fd in funnel_day:
         day = fd["week"][:10]
         en, t7, el = fd["enroll_count"], fd["t7_count"], fd["eligible_count"]
-        a  = api_idx.get(day, {})
-        i  = imp_idx.get(day, {})
+        a   = api_idx.get(day, {})
+        i   = imp_idx.get(day, {})
+        ap  = app_idx.get(day, {})
         ac  = a.get("total",                 0)
         as_ = a.get("success",               0)
         im  = i.get("users_with_impression", 0)
         cl  = i.get("users_clicked",         0)
+        sub = ap.get("users_submitted",      0)
         out.append({
             "week": fd["week"],
             "enrolls": en,  "t7": t7,  "t7_pct": pct(t7, en),
@@ -2083,11 +2351,12 @@ def _build_rc_day(funnel_day, api_daily, imp_daily):
             "api_success": as_, "api_succ_pct": pct(as_, ac),
             "impressions": im, "imp_pct": pct(im, as_),
             "clicks": cl,      "ctr": pct(cl, im),
+            "users_submitted": sub, "submit_pct": pct(sub, cl),
         })
     return out
 
 
-def render_0(rc_data, funnel_day, api_daily, imp_daily):
+def render_0(rc_data, funnel_day, api_daily, imp_daily, app_comp_daily=None):
     def _build(period_data, period):
         rows = list(reversed(period_data))
         lbl  = [r["week"] if period == "month" else r["week"][-5:] for r in rows]
@@ -2097,41 +2366,46 @@ def render_0(rc_data, funnel_day, api_daily, imp_daily):
              "API Called", "API Call%",
              "API Success", "API Succ%",
              "Impressions", "Imp%",
-             "Clicks", "CTR%"],
+             "Clicks", "CTR%",
+             "App Submitted", "Click→Submit %"],
             [[r["week"],
-              r["enrolls"],     r["t7"],          fmt_pct(r["t7_pct"]),
-              r["eligible"],    fmt_pct(r["net_elig_pct"]),
-              r["api_calls"],   fmt_pct(r["api_call_pct"]),
-              r["api_success"], fmt_pct(r["api_succ_pct"]),
-              r["impressions"], fmt_pct(r["imp_pct"]),
-              r["clicks"],      fmt_pct(r["ctr"])]
+              r["enrolls"],          r["t7"],          fmt_pct(r["t7_pct"]),
+              r["eligible"],         fmt_pct(r["net_elig_pct"]),
+              r["api_calls"],        fmt_pct(r["api_call_pct"]),
+              r["api_success"],      fmt_pct(r["api_succ_pct"]),
+              r["impressions"],      fmt_pct(r["imp_pct"]),
+              r["clicks"],           fmt_pct(r["ctr"]),
+              r.get("users_submitted", 0), fmt_pct(r.get("submit_pct", 0))]
              for r in period_data],
-            col_classes=["","","","","","","","","positive","positive","","","",""],
+            col_classes=["","","","","","","","","positive","positive","","","","",
+                         "positive","positive"],
         )
         return {
             "labels": lbl,
             "vol_ds": [
-                [r["enrolls"]     for r in rows],
-                [r["t7"]          for r in rows],
-                [r["eligible"]    for r in rows],
-                [r["api_calls"]   for r in rows],
-                [r["api_success"] for r in rows],
-                [r["impressions"] for r in rows],
-                [r["clicks"]      for r in rows],
+                [r["enrolls"]                    for r in rows],
+                [r["t7"]                         for r in rows],
+                [r["eligible"]                   for r in rows],
+                [r["api_calls"]                  for r in rows],
+                [r["api_success"]                for r in rows],
+                [r["impressions"]                for r in rows],
+                [r["clicks"]                     for r in rows],
+                [r.get("users_submitted", 0)     for r in rows],
             ],
             "rate_ds": [
-                [r["t7_pct"]       for r in rows],
-                [r["net_elig_pct"] for r in rows],
-                [r["api_call_pct"] for r in rows],
-                [r["api_succ_pct"] for r in rows],
-                [r["imp_pct"]      for r in rows],
-                [r["ctr"]          for r in rows],
+                [r["t7_pct"]                     for r in rows],
+                [r["net_elig_pct"]               for r in rows],
+                [r["api_call_pct"]               for r in rows],
+                [r["api_succ_pct"]               for r in rows],
+                [r["imp_pct"]                    for r in rows],
+                [r["ctr"]                        for r in rows],
+                [r.get("submit_pct", 0)          for r in rows],
             ],
             "tbl": tbl,
         }
 
     views = {
-        "day":   _build(_build_rc_day(funnel_day, api_daily, imp_daily), "day"),
+        "day":   _build(_build_rc_day(funnel_day, api_daily, imp_daily, app_comp_daily), "day"),
         "week":  _build(rc_data, "week"),
         "month": _build(_agg_0_month(rc_data), "month"),
     }
@@ -2144,13 +2418,14 @@ def render_0(rc_data, funnel_day, api_daily, imp_daily):
     vol_cfg = {
         "type": "line",
         "data": {"labels": dw["labels"], "datasets": [
-            {"label": "Enrolls",     "data": dw["vol_ds"][0], "borderColor": "#94a3b8", "backgroundColor": "transparent", "tension": 0.3},
-            {"label": "T7",          "data": dw["vol_ds"][1], "borderColor": "#3b82f6", "backgroundColor": "transparent", "tension": 0.3},
-            {"label": "Eligible",    "data": dw["vol_ds"][2], "borderColor": "#8b5cf6", "backgroundColor": "transparent", "tension": 0.3},
-            {"label": "API Called",  "data": dw["vol_ds"][3], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3},
-            {"label": "API Success", "data": dw["vol_ds"][4], "borderColor": "#22c55e", "backgroundColor": "transparent", "tension": 0.3},
-            {"label": "Impressions", "data": dw["vol_ds"][5], "borderColor": "#06b6d4", "backgroundColor": "transparent", "tension": 0.3},
-            {"label": "Clicks",      "data": dw["vol_ds"][6], "borderColor": "#f43f5e", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Enrolls",       "data": dw["vol_ds"][0], "borderColor": "#94a3b8", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "T7",            "data": dw["vol_ds"][1], "borderColor": "#3b82f6", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Eligible",      "data": dw["vol_ds"][2], "borderColor": "#8b5cf6", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "API Called",    "data": dw["vol_ds"][3], "borderColor": "#f59e0b", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "API Success",   "data": dw["vol_ds"][4], "borderColor": "#22c55e", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Impressions",   "data": dw["vol_ds"][5], "borderColor": "#06b6d4", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Clicks",        "data": dw["vol_ds"][6], "borderColor": "#f43f5e", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "App Submitted", "data": dw["vol_ds"][7], "borderColor": "#16a34a", "backgroundColor": "transparent", "tension": 0.3, "borderDash": [4, 4]},
         ]},
         "options": {"responsive": True, "maintainAspectRatio": False,
             "plugins": {"title": {"display": True, "text": "Funnel volume", "font": {"size": 12}},
@@ -2166,6 +2441,7 @@ def render_0(rc_data, funnel_day, api_daily, imp_daily):
             {"label": "API Success %",          "data": dw["rate_ds"][3], "borderColor": "#22c55e", "backgroundColor": "transparent", "tension": 0.3},
             {"label": "Imp Rate % (of Succ)",   "data": dw["rate_ds"][4], "borderColor": "#06b6d4", "backgroundColor": "transparent", "tension": 0.3},
             {"label": "CTR %",                  "data": dw["rate_ds"][5], "borderColor": "#f43f5e", "backgroundColor": "transparent", "tension": 0.3},
+            {"label": "Click→Submit %",         "data": dw["rate_ds"][6], "borderColor": "#16a34a", "backgroundColor": "transparent", "tension": 0.3, "borderWidth": 2.5, "borderDash": [4, 4]},
         ]},
         "options": {"responsive": True, "maintainAspectRatio": False,
             "plugins": {"title": {"display": True, "text": "Stage conversion rates (%)", "font": {"size": 12}},
@@ -2353,12 +2629,14 @@ tr:hover td{{background:#f8fafc}}
     <button class="sub-tab"        onclick="showSub('l1','1c',this)">1C · Impression Delivery</button>
     <button class="sub-tab"        onclick="showSub('l1','1d',this)">1D · Assignment Balance</button>
     <button class="sub-tab"        onclick="showSub('l1','1e',this)">1E · Segment Overlap</button>
+    <button class="sub-tab"        onclick="showSub('l1','1f',this)">1F · App Completion</button>
   </div>
   <div id="l1-1a" class="subtab-pane active">{content_1a}</div>
   <div id="l1-1b" class="subtab-pane">{content_1b}</div>
   <div id="l1-1c" class="subtab-pane">{content_1c}</div>
   <div id="l1-1d" class="subtab-pane">{content_1d}</div>
   <div id="l1-1e" class="subtab-pane">{content_1e}</div>
+  <div id="l1-1f" class="subtab-pane">{content_1f}</div>
 </div>
 
 <!-- Revenue Impact -->
@@ -2402,12 +2680,13 @@ def generate_html(data):
     html = HTML_TEMPLATE.format(
         exp_start    = EXP_START,
         refresh_date = date.today().strftime("%B %d, %Y"),
-        content_0    = render_0(data["rc"], data["funnel"], data["api_daily"], data["imp_daily"]),
+        content_0    = render_0(data["rc"], data["funnel"], data["api_daily"], data["imp_daily"], data["app_comp_daily"]),
         content_1a   = render_1a(data["funnel"]),
         content_1b   = render_1b(data["api_health"], data["api_daily"]),
         content_1c   = render_1c(data["impression"], data["imp_daily"], data["funnel"]),
         content_1d   = render_1d(data["balance"], data["bal_daily"]),
         content_1e   = render_1e(data["overlap"]),
+        content_1f   = render_1f(data["app_comp_weekly"], data["app_comp_daily"]),
         content_2a   = render_2a(data["rpu_rows"], data["cumul"]),
     )
     return html
@@ -2442,6 +2721,8 @@ def main():
         ("1D Balance",         SQL_1D_BALANCE),
         ("1D Balance Daily",   SQL_1D_BALANCE_DAILY),
         ("1E User Overlap",    SQL_1E_USER_OVERLAP),
+        ("1F App Completion",  SQL_1F_APP_COMPLETION),
+        ("1F App Comp Daily",  SQL_1F_APP_COMPLETION_DAILY),
         ("2A Base RPU",        SQL_BASE_RPU),
         ("2B Partner Pays",    SQL_PARTNER_PAYOUTS),
     ]
@@ -2467,11 +2748,13 @@ def main():
     imp_daily     = process_1c_daily(*results["1C Imp Daily"])
     bal_data      = process_1d(*results["1D Balance"])
     bal_daily     = process_1d_daily(*results["1D Balance Daily"])
-    overlap_data  = process_1e(*results["1E User Overlap"])
+    overlap_data    = process_1e(*results["1E User Overlap"])
+    app_comp_weekly = process_1f(*results["1F App Completion"])
+    app_comp_daily  = process_1f_daily(*results["1F App Comp Daily"])
     rpu_rows, cumul = process_2a(*results["2A Base RPU"], c1b_map)
     decomp_data   = process_2b(*results["2B Partner Pays"], c1b_map)
     cannibal      = process_4a(rpu_rows)
-    rc_data       = process_0(funnel_weekly, api_data, imp_data, rpu_rows)
+    rc_data       = process_0(funnel_weekly, api_data, imp_data, rpu_rows, app_comp_weekly)
 
     all_data = {
         "funnel":     funnel_data,
@@ -2481,8 +2764,10 @@ def main():
         "imp_daily":  imp_daily,
         "balance":    bal_data,
         "bal_daily":  bal_daily,
-        "overlap":    overlap_data,
-        "rc":         rc_data,
+        "overlap":          overlap_data,
+        "app_comp_weekly":  app_comp_weekly,
+        "app_comp_daily":   app_comp_daily,
+        "rc":               rc_data,
         "rpu_rows":   rpu_rows,
         "cumul":      cumul,
         "decomp":     decomp_data,

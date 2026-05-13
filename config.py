@@ -10,7 +10,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_DIR = os.path.join(BASE_DIR, "input_data")
 COMPUTED_DIR = os.path.join(BASE_DIR, "computed")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
-QUERIES_DIR = os.path.join(BASE_DIR, "queries")
+RECON_QUERIES_DIR   = os.path.join(BASE_DIR, "recon",   "queries")
+MONITOR_QUERIES_DIR = os.path.join(BASE_DIR, "monitor", "queries")
+QUERIES_DIR = RECON_QUERIES_DIR  # legacy alias used by dashboard/render.py read_sql()
 OUTPUT_HTML = os.path.join(BASE_DIR, "index.html")
 
 # ── Metabase ──────────────────────────────────────────────────────────────────
@@ -21,22 +23,22 @@ METABASE_DATABASE_ID = 2  # dataplatform (Athena)
 
 QUERIES = {
     "reports_by_payout_cycle": {
-        "sql_file": os.path.join(QUERIES_DIR, "reports_by_payout_cycle.sql"),
+        "sql_file": os.path.join(RECON_QUERIES_DIR, "reports_by_payout_cycle.sql"),
         "file": os.path.join(INPUT_DIR, "reports_by_payout_cycle.csv"),
         "expected_columns": ["invoice_month", "partner", "cycle", "reports_revenue"],
     },
     "daily_by_partner": {
-        "sql_file": os.path.join(QUERIES_DIR, "daily_by_partner.sql"),
+        "sql_file": os.path.join(MONITOR_QUERIES_DIR, "daily_by_partner.sql"),
         "file": os.path.join(INPUT_DIR, "daily_by_partner.csv"),
         "expected_columns": ["date", "partner", "payout"],
     },
     "weekly_by_partner": {
-        "sql_file": os.path.join(QUERIES_DIR, "weekly_by_partner.sql"),
+        "sql_file": os.path.join(MONITOR_QUERIES_DIR, "weekly_by_partner.sql"),
         "file": os.path.join(INPUT_DIR, "weekly_by_partner.csv"),
         "expected_columns": ["week_start", "partner", "payout"],
     },
     "monthly_by_partner": {
-        "sql_file": os.path.join(QUERIES_DIR, "monthly_by_partner.sql"),
+        "sql_file": os.path.join(MONITOR_QUERIES_DIR, "monthly_by_partner.sql"),
         "file": os.path.join(INPUT_DIR, "monthly_by_partner.csv"),
         "expected_columns": ["month", "partner", "payout"],
     },
