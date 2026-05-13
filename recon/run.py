@@ -153,6 +153,18 @@ def main():
         dashboard_render.main(close_month)
         health["steps"]["dashboard_render"] = "OK"
 
+        print()
+        print("─── Step 4: Generate C1B Dashboard ───")
+        try:
+            from experiments import run as experiments_run
+            experiments_run.main()
+            health["steps"]["c1b_dashboard"] = "OK"
+        except Exception as e:
+            err = f"C1B dashboard failed: {e}"
+            print(f"[recon] WARNING: {err}")
+            health["steps"]["c1b_dashboard"] = "FAILED"
+            health["errors"].append(err)
+
     except Exception as e:
         health["status"] = "FAILED"
         health["errors"].append(traceback.format_exc())
